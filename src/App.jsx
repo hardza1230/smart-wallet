@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, Calendar, Hash, BookOpen, Users } from 'lucide-react';
+import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake } from 'lucide-react';
 
 // --- Firebase Config & Init ---
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, writeBatch, where, getDocs } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyByueq9po9xamWC4y6gLokjj_jOlOjfDHI",
@@ -56,34 +56,48 @@ const profiles = {
 
 // --- Custom Components ---
 
-const SimpleDonutChart = ({ income, expense }) => {
-  const total = income + expense;
-  if (total === 0) return (
-    <div className="h-32 flex items-center justify-center text-gray-400 bg-white/50 rounded-full w-32 mx-auto border-4 border-gray-200">
-      <span className="text-[10px]">ไม่มีข้อมูล</span>
+const CalculatorPad = ({ onConfirm, onClose }) => {
+  const [display, setDisplay] = useState('');
+  const handlePress = (val) => {
+    if (val === 'C') setDisplay('');
+    else if (val === '=') {
+      try {
+        // eslint-disable-next-line no-new-func
+        const result = Function('"use strict";return (' + display + ')')();
+        setDisplay(String(result));
+      } catch (e) { setDisplay('Error'); }
+    } else setDisplay(prev => prev + val);
+  };
+  const handleConfirm = () => {
+    try {
+      const result = display ? Function('"use strict";return (' + display + ')')() : '';
+      onConfirm(String(result));
+    } catch (e) { onConfirm(''); }
+  };
+  return (
+    <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 w-full max-w-xs mx-auto animate-in zoom-in-95 duration-200">
+      <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-gray-500 text-xs uppercase">เครื่องคิดเลข</h3><button onClick={onClose}><X size={16} className="text-gray-400"/></button></div>
+      <div className="bg-gray-100 rounded-xl p-4 mb-4 text-right text-2xl font-bold text-gray-800 h-16 flex items-center justify-end overflow-hidden">{display || '0'}</div>
+      <div className="grid grid-cols-4 gap-2">{['7','8','9','/','4','5','6','*','1','2','3','-','C','0','=','+'].map(btn => (<button key={btn} onClick={() => handlePress(btn)} className={`h-12 rounded-lg font-bold text-lg shadow-sm active:scale-95 transition-all ${['/','*','-','+','='].includes(btn) ? 'bg-blue-100 text-blue-700' : btn === 'C' ? 'bg-red-100 text-red-600' : 'bg-white border border-gray-200 text-gray-700'}`}>{btn}</button>))}</div>
+      <button onClick={handleConfirm} className="w-full mt-4 bg-gray-900 text-white py-3 rounded-xl font-bold">ใช้ยอดนี้</button>
     </div>
   );
+};
 
+const SimpleDonutChart = ({ income, expense }) => {
+  const total = income + expense;
+  if (total === 0) return (<div className="h-32 flex items-center justify-center text-gray-400 bg-white/50 rounded-full w-32 mx-auto border-4 border-gray-200"><span className="text-[10px]">ไม่มีข้อมูล</span></div>);
   const incomePercent = (income / total) * 100;
   const radius = 15.9155;
   const circumference = 2 * Math.PI * radius;
   const incomeStroke = (incomePercent / 100) * circumference;
-
   return (
     <div className="relative w-32 h-32 mx-auto">
       <svg viewBox="0 0 42 42" className="transform -rotate-90 w-full h-full">
         <circle cx="21" cy="21" r={radius} fill="transparent" stroke="#f87171" strokeWidth="6" />
-        <circle cx="21" cy="21" r={radius} fill="transparent" stroke="#4ade80" strokeWidth="6" 
-          strokeDasharray={`${incomeStroke} ${circumference}`} strokeDashoffset="0" 
-          strokeLinecap="round" 
-        />
+        <circle cx="21" cy="21" r={radius} fill="transparent" stroke="#4ade80" strokeWidth="6" strokeDasharray={`${incomeStroke} ${circumference}`} strokeDashoffset="0" strokeLinecap="round" />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[9px] text-gray-500 font-bold uppercase">คงเหลือ</span>
-        <span className={`text-sm font-bold ${income >= expense ? 'text-green-700' : 'text-red-600'}`}>
-          {(income - expense).toLocaleString()}
-        </span>
-      </div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-[9px] text-gray-500 font-bold uppercase">คงเหลือ</span><span className={`text-sm font-bold ${income >= expense ? 'text-green-700' : 'text-red-600'}`}>{(income - expense).toLocaleString()}</span></div>
     </div>
   );
 };
@@ -93,32 +107,20 @@ const CategoryBar = ({ category, amount, total, color, icon }) => {
   return (
     <div className="mb-3">
       <div className="flex justify-between items-center mb-1 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">{icon}</span>
-          <span className="font-semibold text-gray-700">{category}</span>
-        </div>
-        <div className="text-right">
-          <span className="font-bold text-gray-800">{amount.toLocaleString()}</span>
-          <span className="text-[10px] text-gray-500 ml-1">({percent.toFixed(0)}%)</span>
-        </div>
+        <div className="flex items-center gap-2"><span className="text-sm">{icon}</span><span className="font-semibold text-gray-700">{category}</span></div>
+        <div className="text-right"><span className="font-bold text-gray-800">{amount.toLocaleString()}</span><span className="text-[10px] text-gray-500 ml-1">({percent.toFixed(0)}%)</span></div>
       </div>
-      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-        <div style={{ width: `${percent}%`, backgroundColor: color }} className="h-full rounded-full transition-all duration-500 ease-out"></div>
-      </div>
+      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden"><div style={{ width: `${percent}%`, backgroundColor: color }} className="h-full rounded-full transition-all duration-500 ease-out"></div></div>
     </div>
   );
 };
 
-// Heatmap Component
 const CalendarHeatmap = ({ transactions }) => {
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  // Calculate daily spending
   const dailySpending = {};
   let maxSpend = 0;
-
   transactions.forEach(t => {
     const d = new Date(t.timestamp);
     if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense' && !t.isTransfer) {
@@ -127,38 +129,23 @@ const CalendarHeatmap = ({ transactions }) => {
       if (dailySpending[day] > maxSpend) maxSpend = dailySpending[day];
     }
   });
-
   const getColor = (amount) => {
-    if (!amount) return 'bg-gray-100';
+    if (!amount) return 'bg-gray-50 text-gray-300';
     const intensity = amount / (maxSpend || 1);
-    if (intensity > 0.7) return 'bg-red-500';
-    if (intensity > 0.4) return 'bg-orange-400';
-    if (intensity > 0) return 'bg-green-400';
-    return 'bg-gray-100';
+    if (intensity > 0.7) return 'bg-red-500 text-white shadow-md ring-2 ring-red-200';
+    if (intensity > 0.4) return 'bg-orange-400 text-white';
+    if (intensity > 0) return 'bg-green-400 text-white';
+    return 'bg-gray-100 text-gray-400';
   };
-
+  const formatMoney = (amount) => {
+    if (!amount) return '';
+    if (amount >= 1000) return (amount / 1000).toFixed(1) + 'k';
+    return amount;
+  };
   return (
     <div className="bg-white p-4 rounded-3xl border border-gray-200 shadow-sm mb-6">
-      <div className="flex items-center gap-2 mb-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
-        <Calendar size={14} /> ปฏิทินการใช้เงิน (เดือนนี้)
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {days.map(day => (
-          <div key={day} className="flex flex-col items-center gap-1">
-            <div 
-              className={`w-full aspect-square rounded-lg flex items-center justify-center text-[10px] font-medium transition-all ${getColor(dailySpending[day])} ${dailySpending[day] ? 'text-white shadow-sm scale-105' : 'text-gray-300'}`}
-              title={`Day ${day}: ฿${dailySpending[day] || 0}`}
-            >
-              {day}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-end gap-2 mt-2 text-[9px] text-gray-400">
-        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-green-400"></div>เบาๆ</div>
-        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-orange-400"></div>ปานกลาง</div>
-        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-red-500"></div>หนักหน่วง</div>
-      </div>
+      <div className="flex items-center gap-2 mb-3 text-xs font-bold text-gray-400 uppercase tracking-wider"><Activity size={14} /> ปฏิทินการใช้เงิน (เดือนนี้)</div>
+      <div className="grid grid-cols-7 gap-1.5">{days.map(day => (<div key={day} className="flex flex-col items-center"><div className={`w-full aspect-square rounded-lg flex flex-col items-center justify-center text-[10px] font-bold transition-all border border-transparent ${getColor(dailySpending[day])}`} title={`วันที่ ${day}: ฿${dailySpending[day] || 0}`}><span className="text-[8px] opacity-60 leading-none mb-0.5">{day}</span><span className="leading-none text-[9px]">{formatMoney(dailySpending[day])}</span></div></div>))}</div>
     </div>
   );
 };
@@ -170,31 +157,16 @@ const Particles = ({ active, type }) => {
   let animName = 'animate-fly-up';
   if (type === 'income') { colorClass = 'from-green-400 to-yellow-400'; animName = 'animate-fly-down'; }
   else if (type === 'transfer') { colorClass = 'from-blue-400 to-cyan-400'; animName = 'animate-fly-across'; }
-
   return (
     <div className="fixed inset-0 pointer-events-none z-[70] overflow-hidden">
-      {particles.map((_, i) => (
-        <div key={i} className={`absolute w-4 h-4 rounded-full bg-gradient-to-r shadow-md ${colorClass} ${animName}`}
-          style={{
-            left: '50%', top: '50%',
-            '--tx': `${(Math.random() - 0.5) * 350}px`, '--ty': type === 'income' ? `${window.innerHeight * 0.4}px` : `-${window.innerHeight * 0.4}px`, 
-            '--tr': type === 'transfer' ? `${(Math.random() > 0.5 ? 1 : -1) * window.innerWidth}px` : '0px',
-            '--d': `${Math.random() * 0.3}s`, '--s': `${0.8 + Math.random() * 1.2}`
-          }}
-        />
-      ))}
+      {particles.map((_, i) => (<div key={i} className={`absolute w-4 h-4 rounded-full bg-gradient-to-r shadow-md ${colorClass} ${animName}`} style={{ left: '50%', top: '50%', '--tx': `${(Math.random() - 0.5) * 350}px`, '--ty': type === 'income' ? `${window.innerHeight * 0.4}px` : `-${window.innerHeight * 0.4}px`, '--tr': type === 'transfer' ? `${(Math.random() > 0.5 ? 1 : -1) * window.innerWidth}px` : '0px', '--d': `${Math.random() * 0.3}s`, '--s': `${0.8 + Math.random() * 1.2}` }} />))}
     </div>
   );
 };
 
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
-  return (
-    <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 whitespace-nowrap ${type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`}>
-      {type === 'success' ? <CheckCircle2 size={18} className="text-green-400"/> : <AlertCircle size={18} className="text-red-200"/>}
-      <span className="text-sm font-medium font-sans">{message}</span>
-    </div>
-  );
+  return (<div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 whitespace-nowrap ${type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`}>{type === 'success' ? <CheckCircle2 size={18} className="text-green-400"/> : <AlertCircle size={18} className="text-red-200"/>}<span className="text-sm font-medium font-sans">{message}</span></div>);
 };
 
 export default function App() {
@@ -202,36 +174,42 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [bills, setBills] = useState([]);
-  const [debts, setDebts] = useState([]); // New Debt State
+  const [debts, setDebts] = useState([]);
+  const [wishlist, setWishlist] = useState([]);
+  const [events, setEvents] = useState([]);
+  
   const [activeWalletId, setActiveWalletId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentProfile, setCurrentProfile] = useState('hart');
   const [customSpaceNames, setCustomSpaceNames] = useState({});
   const [viewMode, setViewMode] = useState('dashboard'); 
   const [isFabOpen, setIsFabOpen] = useState(false);
-  
   const [reportRange, setReportRange] = useState('month');
   const [modalMode, setModalMode] = useState(null); 
   const [animState, setAnimState] = useState({ active: false, type: 'expense', key: 0 });
   const [toast, setToast] = useState(null);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   // Forms
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
-  const [tags, setTags] = useState(''); // New Tag Input
+  const [tags, setTags] = useState('');
   const [type, setType] = useState('expense');
   const [transferToWalletId, setTransferToWalletId] = useState('');
 
   const [walletForm, setWalletForm] = useState({ id: null, name: '', initialBalance: '', icon: '💵', color: '#1e40af', owner: 'hart' });
   const [budgetForm, setBudgetForm] = useState({ id: null, category: '', limit: '' });
   const [billForm, setBillForm] = useState({ title: '', amount: '', recurringDay: '' });
-  const [debtForm, setDebtForm] = useState({ person: '', amount: '', type: 'lent', note: '' }); // New Debt Form
-  
+  const [debtForm, setDebtForm] = useState({ person: '', amount: '', type: 'lent', note: '' });
+  const [wishlistForm, setWishlistForm] = useState({ id: null, title: '', price: '', link: '', notes: '', status: 'pending' }); // Updated for edit
+  const [eventForm, setEventForm] = useState({ id: null, title: '', date: '', items: [] }); // Updated for edit
+  const [eventItemForm, setEventItemForm] = useState({ name: '', cost: '' });
+
   const [payBillData, setPayBillData] = useState(null);
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // Styles
+  // Styles & Data Loading
   useEffect(() => {
     const style = document.createElement('style');
     style.innerHTML = `
@@ -248,7 +226,6 @@ export default function App() {
     return () => document.head.removeChild(style);
   }, []);
 
-  // Load Data
   useEffect(() => {
     const unsubW = onSnapshot(query(collection(db, "wallets"), orderBy("createdAt", "asc")), (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -260,13 +237,14 @@ export default function App() {
     const unsubT = onSnapshot(query(collection(db, "transactions"), orderBy("timestamp", "desc")), (snap) => setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
     const unsubB = onSnapshot(query(collection(db, "budgets")), (snap) => setBudgets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
     const unsubBills = onSnapshot(query(collection(db, "bills"), orderBy("createdAt", "desc")), (snap) => setBills(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
-    const unsubDebts = onSnapshot(query(collection(db, "debts"), orderBy("createdAt", "desc")), (snap) => setDebts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))); // New Debt Listener
+    const unsubDebts = onSnapshot(query(collection(db, "debts"), orderBy("createdAt", "desc")), (snap) => setDebts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+    const unsubWish = onSnapshot(query(collection(db, "wishlist"), orderBy("createdAt", "desc")), (snap) => setWishlist(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+    const unsubEvents = onSnapshot(query(collection(db, "events"), orderBy("date", "asc")), (snap) => setEvents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
     
-    return () => { unsubW(); unsubT(); unsubB(); unsubBills(); unsubDebts(); };
+    return () => { unsubW(); unsubT(); unsubB(); unsubBills(); unsubDebts(); unsubWish(); unsubEvents(); };
   }, []);
 
   const visibleWallets = wallets.filter(w => currentProfile === 'family' ? true : (w.owner === currentProfile || !w.owner));
-  
   const getProfileName = (key) => customSpaceNames[key] || profiles[key].name;
 
   useEffect(() => {
@@ -283,8 +261,40 @@ export default function App() {
     return (parseFloat(wallet.initialBalance) || 0) + walletTx.reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
   };
 
+  const calculateDailyChange = (walletId) => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    return transactions
+      .filter(t => t.walletId === walletId && t.timestamp >= startOfDay)
+      .reduce((sum, t) => {
+        if (t.type === 'income') return sum + t.amount;
+        if (t.type === 'expense') return sum - t.amount;
+        return sum;
+      }, 0);
+  };
+
   const totalWealth = visibleWallets.reduce((acc, wallet) => acc + calculateBalance(wallet), 0);
   const myPendingBills = bills.filter(b => b.assignedTo === currentProfile && b.status !== 'paid');
+  
+  // Daily Budget
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const profileBudgets = budgets.filter(b => currentProfile === 'family' ? true : (b.owner === currentProfile));
+  const totalMonthlyBudget = profileBudgets.reduce((acc, b) => acc + b.limit, 0);
+  
+  const budgetedExpenses = transactions.filter(t => {
+    const txDate = new Date(t.timestamp);
+    const isBudgeted = profileBudgets.some(b => b.category === t.category);
+    const isProfileTx = currentProfile === 'family' ? true : visibleWallets.some(w => w.id === t.walletId);
+    return t.type === 'expense' && !t.isTransfer && isBudgeted && isProfileTx &&
+           txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
+  }).reduce((sum, t) => sum + t.amount, 0);
+
+  const remainingBudget = totalMonthlyBudget - budgetedExpenses;
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const todayDate = new Date().getDate();
+  const daysRemaining = Math.max(1, daysInMonth - todayDate + 1);
+  const dailyBudget = totalMonthlyBudget > 0 ? (remainingBudget / daysRemaining) : 0;
 
   const reportStats = useMemo(() => {
     const now = new Date();
@@ -309,9 +319,6 @@ export default function App() {
     return { income, expense, sortedCats: Object.entries(catStats).sort((a, b) => b[1] - a[1]) };
   }, [transactions, reportRange, visibleWallets]);
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const profileBudgets = budgets.filter(b => currentProfile === 'family' ? true : (b.owner === currentProfile));
   const getCategorySpent = (catName) => transactions.filter(t => {
         const txDate = new Date(t.timestamp);
         return t.category === catName && t.type === 'expense' && !t.isTransfer && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear && visibleWallets.some(w => w.id === t.walletId);
@@ -339,7 +346,7 @@ export default function App() {
     const timestamp = Date.now();
     const dateDisplay = new Date().toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
     try {
-      const tagArray = tags.split(' ').filter(t => t.trim() !== ''); // Process tags
+      const tagArray = tags.split(' ').filter(t => t.trim() !== '');
       const note = tagArray.length > 0 ? tagArray.map(t => t.startsWith('#') ? t : `#${t}`).join(' ') : '';
 
       if (type === 'transfer') {
@@ -368,6 +375,28 @@ export default function App() {
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
 
+  // Clear Wallet Transactions Logic
+  const handleClearWalletTransactions = async (walletId) => {
+    if (confirm("⚠️ แน่ใจไหม? ประวัติการใช้จ่ายทั้งหมดของกระเป๋านี้จะหายไป!")) {
+      setLoading(true);
+      try {
+        const q = query(collection(db, "transactions"), where("walletId", "==", walletId));
+        const snapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((doc) => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+        showToast("ล้างประวัติเรียบร้อย (เริ่มใหม่!)");
+        setModalMode(null);
+      } catch (error) {
+        showToast("เกิดข้อผิดพลาด: " + error.message, "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const handleSaveBudget = async () => {
     if (!budgetForm.category || !budgetForm.limit) return showToast("กรอกข้อมูลให้ครบ", "error");
     setLoading(true);
@@ -380,102 +409,96 @@ export default function App() {
   };
 
   // --- Bill Functions ---
-  const handleAddBill = async () => {
-    if (!billForm.title || !billForm.amount) return showToast("กรอกชื่อรายการและยอดเงิน", "error");
+  const handleAddBill = async () => { 
+    if (!billForm.title || !billForm.amount) return showToast("กรอกชื่อและยอดเงิน", "error");
     setLoading(true);
     try {
       await addDoc(collection(db, "bills"), {
-        title: billForm.title,
-        amount: parseFloat(billForm.amount),
-        recurringDay: billForm.recurringDay,
-        assignedTo: null,
-        assignedBy: null,
-        status: 'pending',
-        createdAt: Date.now()
+        title: billForm.title, amount: parseFloat(billForm.amount), recurringDay: billForm.recurringDay,
+        assignedTo: null, assignedBy: null, status: 'pending', createdAt: Date.now()
       });
-      setBillForm({ title: '', amount: '', recurringDay: '' });
-      setModalMode(null);
-      showToast("สร้างรายการบิลแล้ว");
+      setBillForm({ title: '', amount: '', recurringDay: '' }); setModalMode(null); showToast("สร้างบิลแล้ว");
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
-
   const handleAssignBill = async (billId, targetProfile) => {
-    try {
-      await updateDoc(doc(db, "bills", billId), {
-        assignedTo: targetProfile,
-        assignedBy: currentProfile
-      });
-      showToast(`โยนบิลไปให้ ${getProfileName(targetProfile)} แล้ว!`);
-    } catch (error) { showToast(error.message, "error"); }
+    try { await updateDoc(doc(db, "bills", billId), { assignedTo: targetProfile, assignedBy: currentProfile }); showToast("โยนบิลเรียบร้อย!"); } catch (error) { showToast(error.message, "error"); }
   };
-
   const handleUnassignBill = async (billId) => {
-    try {
-      await updateDoc(doc(db, "bills", billId), {
-        assignedTo: null,
-        assignedBy: null
-      });
-      showToast("ดึงบิลกลับมากองกลางแล้ว");
-    } catch (error) { showToast(error.message, "error"); }
+    try { await updateDoc(doc(db, "bills", billId), { assignedTo: null, assignedBy: null }); showToast("ยกเลิกการโยน"); } catch (error) { showToast(error.message, "error"); }
   };
-
   const handlePayBillClick = (bill) => { setPayBillData(bill); setModalMode('pay-bill'); };
-
   const confirmPayBill = async (walletId) => {
-    if(!walletId) return showToast("กรุณาเลือกกระเป๋าที่จะจ่าย", "error");
+    if(!walletId) return showToast("เลือกกระเป๋าจ่าย", "error");
     setLoading(true);
     try {
       await updateDoc(doc(db, "bills", payBillData.id), { status: 'paid' });
       const selectedWallet = wallets.find(w => w.id === walletId);
-      const timestamp = Date.now();
-      const dateDisplay = new Date().toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
-      
-      await addDoc(collection(db, "transactions"), { 
-        amount: parseFloat(payBillData.amount), 
-        category: 'จ่ายบิล',
-        type: 'expense', 
-        isTransfer: false, 
-        walletId: walletId, 
-        note: `ชำระบิล: ${payBillData.title}`,
-        timestamp, 
-        dateDisplay 
-      });
-
-      triggerAnimation('expense');
-      setModalMode(null);
-      setPayBillData(null);
-      showToast(`จ่ายบิลเรียบร้อยด้วยกระเป๋า ${selectedWallet.name}`);
+      await addDoc(collection(db, "transactions"), { amount: parseFloat(payBillData.amount), category: 'จ่ายบิล', type: 'expense', isTransfer: false, walletId: walletId, note: `ชำระบิล: ${payBillData.title}`, timestamp: Date.now(), dateDisplay: new Date().toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) });
+      triggerAnimation('expense'); setModalMode(null); setPayBillData(null); showToast(`จ่ายบิลเรียบร้อย`);
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
+
+  // --- Wishlist Functions ---
+  const handleSaveWishlist = async () => {
+    if(!wishlistForm.title || !wishlistForm.price) return showToast("กรอกชื่อของและราคา", "error");
+    setLoading(true);
+    try {
+      const wishlistData = {
+        title: wishlistForm.title, price: parseFloat(wishlistForm.price), link: wishlistForm.link, notes: wishlistForm.notes,
+        requester: wishlistForm.id ? wishlistForm.requester : currentProfile, status: wishlistForm.status, createdAt: Date.now()
+      };
+      
+      if (wishlistForm.id) await updateDoc(doc(db, "wishlist", wishlistForm.id), wishlistData);
+      else await addDoc(collection(db, "wishlist"), wishlistData);
+
+      setWishlistForm({ id: null, title: '', price: '', link: '', notes: '', status: 'pending' }); setModalMode(null); showToast("บันทึกรายการแล้ว!");
+    } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
+  };
+  
+  const handleWishlistAction = async (id, status) => {
+    try { await updateDoc(doc(db, "wishlist", id), { status }); showToast(status === 'approved' ? 'อนุมัติแล้ว!' : (status === 'pending' ? 'รีเซ็ตสถานะแล้ว' : 'ปัดตกแล้ว')); } catch (error) { showToast(error.message, "error"); }
+  };
+  const handleDeleteWishlist = async (id) => { if(confirm("ลบรายการนี้?")) await deleteDoc(doc(db, "wishlist", id)); };
+  const openEditWishlist = (item) => { setWishlistForm({ id: item.id, title: item.title, price: item.price, link: item.link, notes: item.notes, status: item.status, requester: item.requester }); setModalMode('manage-wishlist'); };
+
+  // --- Event Functions ---
+  const handleSaveEvent = async () => {
+    if(!eventForm.title) return showToast("ใส่ชื่อกิจกรรม", "error");
+    setLoading(true);
+    try {
+      const eventData = { title: eventForm.title, date: eventForm.date, items: eventForm.items, createdAt: Date.now() };
+      if(eventForm.id) await updateDoc(doc(db, "events", eventForm.id), eventData);
+      else await addDoc(collection(db, "events"), eventData);
+      
+      setEventForm({ id: null, title: '', date: '', items: [] }); setModalMode(null); showToast("บันทึกกิจกรรมแล้ว");
+    } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
+  };
+  
+  const addEventItem = () => {
+    if(!eventItemForm.name || !eventItemForm.cost) return;
+    setEventForm(prev => ({ ...prev, items: [...prev.items, { name: eventItemForm.name, cost: parseFloat(eventItemForm.cost) }] }));
+    setEventItemForm({ name: '', cost: '' });
+  };
+  
+  const removeEventItem = (index) => {
+    const newItems = [...eventForm.items];
+    newItems.splice(index, 1);
+    setEventForm(prev => ({ ...prev, items: newItems }));
+  };
+
+  const handleDeleteEvent = async (id) => { if(confirm("ลบกิจกรรม?")) await deleteDoc(doc(db, "events", id)); };
+  const openEditEvent = (event) => { setEventForm({ id: event.id, title: event.title, date: event.date, items: event.items || [] }); setModalMode('manage-event'); };
 
   // --- Debt Functions ---
   const handleAddDebt = async () => {
-    if (!debtForm.person || !debtForm.amount) return showToast("กรอกชื่อคนและจำนวนเงิน", "error");
+    if (!debtForm.person || !debtForm.amount) return showToast("กรอกข้อมูล", "error");
     setLoading(true);
     try {
-      await addDoc(collection(db, "debts"), {
-        person: debtForm.person,
-        amount: parseFloat(debtForm.amount),
-        type: debtForm.type,
-        note: debtForm.note,
-        status: 'pending',
-        owner: currentProfile,
-        createdAt: Date.now()
-      });
-      setDebtForm({ person: '', amount: '', type: 'lent', note: '' });
-      setModalMode(null);
-      showToast("บันทึกหนี้สินเรียบร้อย");
+      await addDoc(collection(db, "debts"), { person: debtForm.person, amount: parseFloat(debtForm.amount), type: debtForm.type, note: debtForm.note, status: 'pending', owner: currentProfile, createdAt: Date.now() });
+      setDebtForm({ person: '', amount: '', type: 'lent', note: '' }); setModalMode(null); showToast("บันทึกหนี้สินเรียบร้อย");
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
-
-  const handleSettleDebt = async (id) => {
-    if(confirm("รายการนี้เคลียร์ยอดแล้วใช่ไหม?")) {
-      try {
-        await deleteDoc(doc(db, "debts", id));
-        showToast("ลบรายการหนี้สินแล้ว");
-      } catch (error) { showToast(error.message, "error"); }
-    }
-  };
+  const handleSettleDebt = async (id) => { if(confirm("เคลียร์ยอด?")) { try { await deleteDoc(doc(db, "debts", id)); showToast("ลบรายการแล้ว"); } catch (error) { showToast(error.message, "error"); } } };
 
   const handleDeleteTransaction = async (id) => { if(confirm("ลบรายการ?")) await deleteDoc(doc(db, "transactions", id)); };
   const handleDeleteBudget = async (id) => { if(confirm("ลบงบประมาณ?")) { await deleteDoc(doc(db, "budgets", id)); setModalMode(null); }};
@@ -490,6 +513,7 @@ export default function App() {
   const openCreateBudget = () => { setBudgetForm({ id: null, category: '', limit: '' }); setModalMode('manage-budget'); };
   const openEditBudget = (b) => { setBudgetForm({ id: b.id, category: b.category, limit: b.limit }); setModalMode('manage-budget'); };
   const openAddDebt = () => { setDebtForm({ person: '', amount: '', type: 'lent', note: '' }); setModalMode('add-debt'); };
+  const openPlanning = () => { setViewMode('planning'); };
   
   return (
     <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${theme.bg} text-gray-900`}>
@@ -534,11 +558,22 @@ export default function App() {
               </div>
             )}
 
-            {/* Total Wealth */}
-            <div className="px-5 pt-4">
+            {/* Total Wealth & Daily Budget (Updated Logic) */}
+            <div className="px-5 pt-4 grid grid-cols-2 gap-3">
               <div className={`p-4 rounded-2xl text-white shadow-lg bg-gradient-to-br ${currentProfile === 'hart' ? 'from-blue-800 to-blue-950' : currentProfile === 'jah' ? 'from-rose-700 to-rose-900' : 'from-slate-700 to-slate-900'}`}>
-                <p className="text-[10px] font-bold opacity-70 mb-1 uppercase tracking-wide">สินทรัพย์รวม</p>
-                <h2 className="text-3xl font-bold tracking-tight">฿{totalWealth.toLocaleString()}</h2>
+                <p className="text-[9px] font-bold opacity-70 mb-1 uppercase tracking-wide">สินทรัพย์รวม</p>
+                <h2 className="text-2xl font-bold tracking-tight">฿{totalWealth.toLocaleString()}</h2>
+              </div>
+              <div className={`p-4 rounded-2xl border transition-all ${totalMonthlyBudget === 0 ? 'bg-gray-100 border-gray-200' : dailyBudget > 500 ? 'bg-green-50 border-green-200 text-green-800' : dailyBudget > 200 ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                <div className="flex items-center gap-1 mb-1">
+                   <Target size={12} />
+                   <p className="text-[9px] font-bold uppercase tracking-wide">ใช้ได้วันละ</p>
+                </div>
+                {totalMonthlyBudget === 0 ? (
+                  <p className="text-xs text-gray-400 mt-1 cursor-pointer" onClick={() => showToast('ไปตั้งเป้าหมายงบประมาณก่อนครับ')}>+ ตั้งงบก่อน</p>
+                ) : (
+                  <h2 className="text-2xl font-bold tracking-tight">฿{Math.floor(dailyBudget).toLocaleString()}</h2>
+                )}
               </div>
             </div>
 
@@ -554,11 +589,22 @@ export default function App() {
                 ) : visibleWallets.map(wallet => {
                     const isActive = wallet.id === activeWalletId;
                     const balance = calculateBalance(wallet);
+                    const dailyChange = calculateDailyChange(wallet.id);
                     return (
                       <div key={wallet.id} className="relative group flex-shrink-0">
                         <button onClick={() => setActiveWalletId(wallet.id)} className={`relative w-40 h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' : 'scale-95 opacity-80 hover:opacity-100'}`} style={{ backgroundColor: wallet.color, color: 'white' }}>
                           <div className="flex justify-between items-start mb-1"><span className="text-xl drop-shadow-sm">{wallet.icon}</span>{isActive && <span className="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold backdrop-blur-sm">ACTIVE</span>}</div>
-                          <div className="mt-auto"><p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90">{wallet.name}</p><span className="text-lg font-bold tracking-tight">{balance.toLocaleString()}</span></div>
+                          <div className="mt-auto">
+                            <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90">{wallet.name}</p>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-lg font-bold tracking-tight">{balance.toLocaleString()}</span>
+                              {dailyChange !== 0 && (
+                                <span className={`text-[9px] ${isActive ? (dailyChange > 0 ? 'text-green-200' : 'text-red-200') : (dailyChange > 0 ? 'text-green-600' : 'text-red-500')}`}>
+                                  ({dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()})
+                                </span>
+                              )}
+                            </div>
+                          </div>
                           {isActive && <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>}
                         </button>
                         {isActive && currentProfile !== 'family' && <button onClick={() => openEditWallet(wallet)} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30"><Settings size={10} /></button>}
@@ -614,55 +660,88 @@ export default function App() {
           </div>
         )}
 
-        {/* === DEBTS VIEW === */}
-        {viewMode === 'debts' && (
+        {/* === PLANNING VIEW (New Center) === */}
+        {viewMode === 'planning' && (
           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-orange-600"/> สมุดหนี้สิน</h2>
-              <button onClick={openAddDebt} className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded-full shadow-lg hover:bg-orange-700 flex items-center gap-1 font-bold">+ เพิ่มรายการ</button>
+            {/* Wishlist Section */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Gift className="text-pink-500"/> รายการของที่อยากได้</h2>
+                <button onClick={() => setModalMode('manage-wishlist')} className="text-xs bg-pink-500 text-white px-3 py-1.5 rounded-full shadow hover:bg-pink-600 font-bold">+ เพิ่ม</button>
+              </div>
+              <div className="space-y-3">
+                {wishlist.length === 0 && <div className="text-center py-6 text-gray-400 text-xs border-2 border-dashed border-gray-200 rounded-xl">ไม่มีรายการ... (ประหยัดจัง!)</div>}
+                {wishlist.map(item => (
+                  <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-gray-800 text-sm">{item.title}</h3>
+                        <p className="text-pink-600 font-bold text-xs">฿{item.price.toLocaleString()}</p>
+                        <p className="text-[9px] text-gray-400 mt-1">ขอโดย: {getProfileName(item.requester)}</p>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        {item.status === 'pending' ? (
+                          <>
+                            <button onClick={() => handleWishlistAction(item.id, 'approved')} className="p-1.5 bg-green-100 text-green-600 rounded-full hover:bg-green-200"><ThumbsUp size={14}/></button>
+                            <button onClick={() => handleWishlistAction(item.id, 'rejected')} className="p-1.5 bg-red-100 text-red-600 rounded-full hover:bg-red-200"><ThumbsDown size={14}/></button>
+                          </>
+                        ) : (
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${item.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {item.status === 'approved' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}
+                          </span>
+                        )}
+                        <button onClick={() => openEditWishlist(item)} className="text-gray-300 hover:text-blue-400 ml-1"><Edit3 size={14}/></button>
+                        <button onClick={() => handleDeleteWishlist(item.id)} className="text-gray-300 hover:text-red-400 ml-1"><Trash2 size={14}/></button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-4">
-              {/* Lent (Green) */}
-              <div>
-                <h3 className="text-xs font-bold text-green-700 uppercase mb-2 ml-1">คนยืมเรา (รอเก็บ)</h3>
-                {debts.filter(d => d.type === 'lent' && d.owner === currentProfile).length === 0 && <p className="text-xs text-gray-400 ml-1">ไม่มีรายการ</p>}
-                <div className="space-y-2">
-                  {debts.filter(d => d.type === 'lent' && d.owner === currentProfile).map(debt => (
-                    <div key={debt.id} className="bg-white p-3 rounded-xl border-l-4 border-green-500 shadow-sm flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-gray-800 text-sm">{debt.person}</p>
-                        <p className="text-green-600 font-bold text-xs">฿{debt.amount.toLocaleString()}</p>
-                        {debt.note && <p className="text-[9px] text-gray-400">{debt.note}</p>}
-                      </div>
-                      <button onClick={() => handleSettleDebt(debt.id)} className="text-[10px] bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 px-2 py-1 rounded">เคลียร์แล้ว</button>
-                    </div>
-                  ))}
-                </div>
+            {/* Events Section */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><CalendarHeart className="text-blue-500"/> กิจกรรมครอบครัว</h2>
+                <button onClick={() => setModalMode('manage-event')} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full shadow hover:bg-blue-700 font-bold">+ เพิ่ม</button>
               </div>
-
-              {/* Borrowed (Red) */}
-              <div>
-                <h3 className="text-xs font-bold text-red-700 uppercase mb-2 ml-1">เรายืมเขา (รอคืน)</h3>
-                {debts.filter(d => d.type === 'borrowed' && d.owner === currentProfile).length === 0 && <p className="text-xs text-gray-400 ml-1">ไม่มีรายการ</p>}
-                <div className="space-y-2">
-                  {debts.filter(d => d.type === 'borrowed' && d.owner === currentProfile).map(debt => (
-                    <div key={debt.id} className="bg-white p-3 rounded-xl border-l-4 border-red-500 shadow-sm flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-gray-800 text-sm">{debt.person}</p>
-                        <p className="text-red-600 font-bold text-xs">฿{debt.amount.toLocaleString()}</p>
-                        {debt.note && <p className="text-[9px] text-gray-400">{debt.note}</p>}
+              <div className="space-y-3">
+                {events.length === 0 && <div className="text-center py-6 text-gray-400 text-xs border-2 border-dashed border-gray-200 rounded-xl">ยังไม่มีแพลนเที่ยวไหน...</div>}
+                {events.map(event => {
+                  const totalCost = event.items?.reduce((sum, item) => sum + item.cost, 0) || 0;
+                  return (
+                    <div key={event.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-l-blue-500">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-bold text-gray-800 text-sm">{event.title}</h3>
+                          <p className="text-[10px] text-gray-500 flex items-center gap-1"><CalendarClock size={10}/> {event.date}</p>
+                        </div>
+                        <div className="flex gap-2">
+                           <button onClick={() => openEditEvent(event)} className="text-gray-300 hover:text-blue-400"><Edit3 size={14}/></button>
+                           <button onClick={() => handleDeleteEvent(event.id)} className="text-gray-300 hover:text-red-400"><Trash2 size={14}/></button>
+                        </div>
                       </div>
-                      <button onClick={() => handleSettleDebt(debt.id)} className="text-[10px] bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-700 px-2 py-1 rounded">คืนแล้ว</button>
+                      <div className="space-y-1 mt-3 pt-2 border-t border-gray-50">
+                        {event.items?.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-xs text-gray-600">
+                            <span>{item.name}</span>
+                            <span>{item.cost.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex justify-between items-center text-sm font-bold text-blue-800 bg-blue-50 p-2 rounded-lg">
+                        <span>รวมงบประมาณ</span>
+                        <span>฿{totalCost.toLocaleString()}</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
-        {/* === BILLS VIEW === */}
+        {/* === BILLS / CHECKLIST VIEW === */}
         {viewMode === 'bills' && currentProfile === 'family' && (
           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50">
             <div className="flex items-center justify-between mb-4">
@@ -700,6 +779,39 @@ export default function App() {
           </div>
         )}
 
+        {/* === DEBTS VIEW === */}
+        {viewMode === 'debts' && (
+          <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-orange-600"/> สมุดหนี้สิน</h2>
+              <button onClick={openAddDebt} className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded-full shadow-lg hover:bg-orange-700 flex items-center gap-1 font-bold">+ เพิ่มรายการ</button>
+            </div>
+            {/* ... (Debt list logic same as previous) ... */}
+            <div className="space-y-4">
+              {/* Lent */}
+              <div>
+                <h3 className="text-xs font-bold text-green-700 uppercase mb-2 ml-1">คนยืมเรา (รอเก็บ)</h3>
+                {debts.filter(d => d.type === 'lent' && d.owner === currentProfile).map(debt => (
+                  <div key={debt.id} className="bg-white p-3 rounded-xl border-l-4 border-green-500 shadow-sm flex justify-between items-center mb-2">
+                    <div><p className="font-bold text-gray-800 text-sm">{debt.person}</p><p className="text-green-600 font-bold text-xs">฿{debt.amount.toLocaleString()}</p>{debt.note && <p className="text-[9px] text-gray-400">{debt.note}</p>}</div>
+                    <button onClick={() => handleSettleDebt(debt.id)} className="text-[10px] bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 px-2 py-1 rounded">เคลียร์แล้ว</button>
+                  </div>
+                ))}
+              </div>
+              {/* Borrowed */}
+              <div>
+                <h3 className="text-xs font-bold text-red-700 uppercase mb-2 ml-1">เรายืมเขา (รอคืน)</h3>
+                {debts.filter(d => d.type === 'borrowed' && d.owner === currentProfile).map(debt => (
+                  <div key={debt.id} className="bg-white p-3 rounded-xl border-l-4 border-red-500 shadow-sm flex justify-between items-center mb-2">
+                    <div><p className="font-bold text-gray-800 text-sm">{debt.person}</p><p className="text-red-600 font-bold text-xs">฿{debt.amount.toLocaleString()}</p>{debt.note && <p className="text-[9px] text-gray-400">{debt.note}</p>}</div>
+                    <button onClick={() => handleSettleDebt(debt.id)} className="text-[10px] bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-700 px-2 py-1 rounded">คืนแล้ว</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* === REPORT VIEW === */}
         {viewMode === 'report' && (
           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 animate-in fade-in zoom-in-95 duration-300">
@@ -711,10 +823,7 @@ export default function App() {
                 <button onClick={() => setReportRange('month')} className={`px-3 py-1 text-[10px] rounded-md font-bold transition-all ${reportRange === 'month' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`}>เดือนนี้</button>
               </div>
             </div>
-
-            {/* Calendar Heatmap */}
             <CalendarHeatmap transactions={transactions} />
-
             <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm mb-6 flex flex-col items-center">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">สัดส่วนการเงิน</h3>
               <SimpleDonutChart income={reportStats.income} expense={reportStats.expense} />
@@ -723,7 +832,6 @@ export default function App() {
                 <div className="text-center p-3 bg-red-50 rounded-xl border border-red-100"><p className="text-[10px] text-red-600 font-bold mb-1">รายจ่าย</p><p className="font-bold text-red-800">{reportStats.expense.toLocaleString()}</p></div>
               </div>
             </div>
-
             <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">อันดับค่าใช้จ่าย</h3>
               {reportStats.sortedCats.length === 0 ? <div className="text-center py-8 text-gray-300 text-xs">ว่างเปล่า... ดีแล้ว!</div> : reportStats.sortedCats.map(([catName, amount]) => {
@@ -735,24 +843,17 @@ export default function App() {
         )}
 
         {/* BOTTOM NAV */}
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-gray-200 shadow-2xl rounded-full px-2 py-2 flex gap-2 z-50">
-          <button onClick={() => setViewMode('dashboard')} className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-all ${viewMode === 'dashboard' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}>
-            <Home size={18} />{viewMode === 'dashboard' && <span className="text-xs font-bold animate-in fade-in slide-in-from-left-2">หน้าหลัก</span>}
-          </button>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-gray-200 shadow-2xl rounded-full px-2 py-2 flex gap-4 z-50">
+          <button onClick={() => setViewMode('dashboard')} className={`p-2 rounded-full transition-all ${viewMode === 'dashboard' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'}`}><Home size={20} /></button>
+          <button onClick={() => setViewMode('planning')} className={`p-2 rounded-full transition-all ${viewMode === 'planning' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400'}`}><CalendarHeart size={20} /></button>
           
           {currentProfile === 'family' ? (
-            <button onClick={() => setViewMode('bills')} className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-all ${viewMode === 'bills' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}>
-              <CheckSquare size={18} />{viewMode === 'bills' && <span className="text-xs font-bold animate-in fade-in slide-in-from-left-2">บิลกลาง</span>}
-            </button>
+            <button onClick={() => setViewMode('bills')} className={`p-2 rounded-full transition-all ${viewMode === 'bills' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400'}`}><CheckSquare size={20} /></button>
           ) : (
-            <button onClick={() => setViewMode('debts')} className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-all ${viewMode === 'debts' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}>
-              <BookOpen size={18} />{viewMode === 'debts' && <span className="text-xs font-bold animate-in fade-in slide-in-from-left-2">หนี้สิน</span>}
-            </button>
+            <button onClick={() => setViewMode('debts')} className={`p-2 rounded-full transition-all ${viewMode === 'debts' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-400'}`}><BookOpen size={20} /></button>
           )}
 
-          <button onClick={() => setViewMode('report')} className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-all ${viewMode === 'report' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}>
-            <PieChart size={18} />{viewMode === 'report' && <span className="text-xs font-bold animate-in fade-in slide-in-from-right-2">สรุป</span>}
-          </button>
+          <button onClick={() => setViewMode('report')} className={`p-2 rounded-full transition-all ${viewMode === 'report' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><PieChart size={20} /></button>
         </div>
 
         {/* FAB */}
@@ -778,9 +879,24 @@ export default function App() {
                 <button onClick={() => setType('transfer')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'transfer' ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-400'}`}><ArrowRightLeft size={14}/> โอนเงิน</button>
                 <button onClick={() => setType('income')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-green-50 text-green-600 shadow-sm' : 'text-gray-400'}`}><TrendingUp size={14}/> รายรับ</button>
               </div>
-              <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label><div className="relative"><input type="number" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/><span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span></div></div>
               
-              {/* Tags Input */}
+              <div className="mb-6">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input type="number" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/>
+                    <span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span>
+                  </div>
+                  <button onClick={() => setShowCalculator(true)} className="p-3 bg-gray-100 rounded-xl text-gray-600 hover:bg-gray-200"><Calculator size={24}/></button>
+                </div>
+              </div>
+              
+              {showCalculator && (
+                <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                  <CalculatorPad onConfirm={(val) => { setAmount(val); setShowCalculator(false); }} onClose={() => setShowCalculator(false)} />
+                </div>
+              )}
+              
               <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">แฮชแท็ก (เว้นวรรคเพื่อแยก)</label><input type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="#เที่ยว #กาแฟ" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400"/></div>
 
               {type === 'transfer' ? (
@@ -831,6 +947,7 @@ export default function App() {
               <div className="mb-4 p-3 bg-purple-50 rounded-xl border border-purple-100"><p className="text-xs text-gray-500 font-bold uppercase">ยอดชำระ</p><div className="flex justify-between items-end"><p className="text-xl font-bold text-purple-700">{payBillData.title}</p><p className="text-xl font-bold text-purple-700">฿{payBillData.amount.toLocaleString()}</p></div></div>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 <p className="text-[10px] font-bold text-gray-400 uppercase">กระเป๋าของ {getProfileName(payBillData.assignedTo)}</p>
+                {wallets.filter(w => w.owner === payBillData.assignedTo).length === 0 && <p className="text-xs text-red-500">ไม่พบกระเป๋าเงินของ {getProfileName(payBillData.assignedTo)}</p>}
                 {wallets.filter(w => w.owner === payBillData.assignedTo).map(wallet => (
                   <button key={wallet.id} onClick={() => confirmPayBill(wallet.id)} className="w-full p-3 rounded-xl border border-gray-200 flex items-center justify-between hover:border-blue-500 hover:bg-blue-50 transition-all">
                     <div className="flex items-center gap-3"><span className="text-xl" style={{color: wallet.color}}>{wallet.icon}</span><div className="text-left"><p className="font-bold text-sm text-gray-800">{wallet.name}</p><p className="text-xs text-gray-500">คงเหลือ: {calculateBalance(wallet).toLocaleString()}</p></div></div><ArrowRight size={16} className="text-gray-400"/>
@@ -870,7 +987,14 @@ export default function App() {
               {/* Color Picker */}
               <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">สีธีม</label><div className="flex items-center gap-4"><input type="color" value={walletForm.color} onChange={e => setWalletForm({...walletForm, color: e.target.value})} className="w-12 h-12 rounded-full border-2 border-gray-200 cursor-pointer"/><span className="text-xs text-gray-500 font-mono">{walletForm.color}</span></div></div>
             </div>
-            <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveWallet} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกกระเป๋า'}</button></div>
+            
+            {/* Action Buttons */}
+            <div className="p-4 border-t border-gray-200 bg-white space-y-3">
+               <button onClick={handleSaveWallet} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกกระเป๋า'}</button>
+               {walletForm.id && (
+                 <button onClick={() => handleClearWalletTransactions(walletForm.id)} className="w-full bg-red-50 text-red-600 h-12 rounded-xl font-bold text-sm hover:bg-red-100 transition-all flex items-center justify-center gap-2"><Trash2 size={16}/> ล้างประวัติธุรกรรม</button>
+               )}
+            </div>
           </div>
         )}
 
@@ -883,6 +1007,58 @@ export default function App() {
                 <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">งบ (บาท)</label><input type="number" autoFocus value={budgetForm.limit} onChange={e => setBudgetForm({...budgetForm, limit: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-xl font-bold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น 5000"/></div>
              </div>
              <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveBudget} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? '...' : 'บันทึก'}</button></div>
+          </div>
+        )}
+        
+        {/* MODAL: MANAGE WISHLIST (ADD/EDIT) */}
+        {modalMode === 'manage-wishlist' && (
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">{wishlistForm.id ? 'แก้ไขรายการ' : 'เพิ่มของที่อยากได้'}</h2><div className="w-10"></div></div>
+            <div className="flex-1 p-6">
+              <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อของ</label><input type="text" autoFocus value={wishlistForm.title} onChange={e => setWishlistForm({...wishlistForm, title: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-pink-500" placeholder="..."/></div>
+              <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ราคา</label><input type="number" value={wishlistForm.price} onChange={e => setWishlistForm({...wishlistForm, price: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xl font-bold text-gray-800 outline-none focus:border-pink-500" placeholder="0.00"/></div>
+              <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">เหตุผล / Link</label><input type="text" value={wishlistForm.notes} onChange={e => setWishlistForm({...wishlistForm, notes: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-pink-500" placeholder="..."/></div>
+              
+              {wishlistForm.id && wishlistForm.status !== 'pending' && (
+                <div className="mt-6 bg-yellow-50 p-3 rounded-xl border border-yellow-200 flex items-center justify-between">
+                  <span className="text-xs text-yellow-800 font-bold">สถานะ: {wishlistForm.status === 'approved' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'}</span>
+                  <button onClick={() => setWishlistForm({ ...wishlistForm, status: 'pending' })} className="text-[10px] bg-white border border-yellow-300 px-2 py-1 rounded shadow-sm text-yellow-700 font-bold">รีเซ็ตเป็นรอดำเนินการ</button>
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveWishlist} disabled={loading} className="w-full bg-pink-500 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">{loading ? '...' : 'บันทึก'}</button></div>
+          </div>
+        )}
+
+        {/* MODAL: MANAGE EVENT (ADD/EDIT) */}
+        {modalMode === 'manage-event' && (
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">{eventForm.id ? 'แก้ไขกิจกรรม' : 'สร้างกิจกรรม'}</h2><div className="w-10"></div></div>
+            <div className="flex-1 p-6 overflow-y-auto">
+              <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อทริป / กิจกรรม</label><input type="text" autoFocus value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-blue-500" placeholder="..."/></div>
+              <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">วันที่</label><input type="date" value={eventForm.date} onChange={e => setEventForm({...eventForm, date: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:border-blue-500"/></div>
+              
+              <div className="bg-white p-4 rounded-xl border border-gray-200 mb-4">
+                <h3 className="text-xs font-bold text-gray-500 mb-3">รายการค่าใช้จ่าย (ประมาณการ)</h3>
+                <div className="flex gap-2 mb-3">
+                  <input type="text" value={eventItemForm.name} onChange={e => setEventItemForm({...eventItemForm, name: e.target.value})} placeholder="รายการ" className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none"/>
+                  <input type="number" value={eventItemForm.cost} onChange={e => setEventItemForm({...eventItemForm, cost: e.target.value})} placeholder="บาท" className="w-20 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none"/>
+                  <button onClick={addEventItem} className="bg-blue-600 text-white p-2 rounded-lg"><Plus size={16}/></button>
+                </div>
+                <div className="space-y-2">
+                  {eventForm.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-50 pb-1 items-center">
+                      <span>{item.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span>{item.cost.toLocaleString()}</span>
+                        <button onClick={() => removeEventItem(idx)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveEvent} disabled={loading} className="w-full bg-blue-600 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">{loading ? '...' : 'บันทึก'}</button></div>
           </div>
         )}
 
