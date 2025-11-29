@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette } from 'lucide-react';
+import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, Calendar, Hash, BookOpen, Users } from 'lucide-react';
 
 // --- Firebase Config & Init ---
 import { initializeApp } from "firebase/app";
@@ -21,13 +21,12 @@ const db = getFirestore(app);
 // --- Static Data ---
 const iconsList = ['💵', '💳', '🏦', '🐷', '🏠', '🚗', '✈️', '🛍️', '🎓', '💼', '💄', '💅', '🎮', '⚽', '🍔', '☕', '💡', '💧', '📶'];
 
-// Bank Presets (Thai Banks) - Updated Colors
 const bankPresets = [
   { name: 'KBank', color: '#138f2d', icon: 'K' },
   { name: 'SCB', color: '#4e2583', icon: 'SCB' },
   { name: 'BBL', color: '#1e4598', icon: 'BBL' },
   { name: 'KTB', color: '#00a6e6', icon: 'KTB' },
-  { name: 'Krungsri', color: '#fec43b', icon: 'BAY' }, // Yellow might need dark text handling, but keeping white for consistency logic first
+  { name: 'Krungsri', color: '#fec43b', icon: 'BAY' },
   { name: 'TTB', color: '#0050f0', icon: 'ttb' },
   { name: 'GSB', color: '#eb198d', icon: 'GSB' },
 ];
@@ -49,7 +48,6 @@ const incomeCategories = [
   { id: 'gift', name: 'ได้เงิน', icon: '🧧' },
 ];
 
-// Profiles
 const profiles = {
   hart: { name: 'Heart', theme: 'blue', bg: 'bg-blue-100', primary: 'bg-blue-800', text: 'text-blue-950', icon: '👨🏻' },
   jah: { name: 'Jah', theme: 'rose', bg: 'bg-rose-100', primary: 'bg-rose-700', text: 'text-rose-950', icon: '👩🏻' },
@@ -111,6 +109,60 @@ const CategoryBar = ({ category, amount, total, color, icon }) => {
   );
 };
 
+// Heatmap Component
+const CalendarHeatmap = ({ transactions }) => {
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  // Calculate daily spending
+  const dailySpending = {};
+  let maxSpend = 0;
+
+  transactions.forEach(t => {
+    const d = new Date(t.timestamp);
+    if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'expense' && !t.isTransfer) {
+      const day = d.getDate();
+      dailySpending[day] = (dailySpending[day] || 0) + t.amount;
+      if (dailySpending[day] > maxSpend) maxSpend = dailySpending[day];
+    }
+  });
+
+  const getColor = (amount) => {
+    if (!amount) return 'bg-gray-100';
+    const intensity = amount / (maxSpend || 1);
+    if (intensity > 0.7) return 'bg-red-500';
+    if (intensity > 0.4) return 'bg-orange-400';
+    if (intensity > 0) return 'bg-green-400';
+    return 'bg-gray-100';
+  };
+
+  return (
+    <div className="bg-white p-4 rounded-3xl border border-gray-200 shadow-sm mb-6">
+      <div className="flex items-center gap-2 mb-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
+        <Calendar size={14} /> ปฏิทินการใช้เงิน (เดือนนี้)
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {days.map(day => (
+          <div key={day} className="flex flex-col items-center gap-1">
+            <div 
+              className={`w-full aspect-square rounded-lg flex items-center justify-center text-[10px] font-medium transition-all ${getColor(dailySpending[day])} ${dailySpending[day] ? 'text-white shadow-sm scale-105' : 'text-gray-300'}`}
+              title={`Day ${day}: ฿${dailySpending[day] || 0}`}
+            >
+              {day}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2 mt-2 text-[9px] text-gray-400">
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-green-400"></div>เบาๆ</div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-orange-400"></div>ปานกลาง</div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-red-500"></div>หนักหน่วง</div>
+      </div>
+    </div>
+  );
+};
+
 const Particles = ({ active, type }) => {
   if (!active) return null;
   const particles = Array.from({ length: 20 });
@@ -150,6 +202,7 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [bills, setBills] = useState([]);
+  const [debts, setDebts] = useState([]); // New Debt State
   const [activeWalletId, setActiveWalletId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentProfile, setCurrentProfile] = useState('hart');
@@ -165,12 +218,14 @@ export default function App() {
   // Forms
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
+  const [tags, setTags] = useState(''); // New Tag Input
   const [type, setType] = useState('expense');
   const [transferToWalletId, setTransferToWalletId] = useState('');
 
   const [walletForm, setWalletForm] = useState({ id: null, name: '', initialBalance: '', icon: '💵', color: '#1e40af', owner: 'hart' });
   const [budgetForm, setBudgetForm] = useState({ id: null, category: '', limit: '' });
   const [billForm, setBillForm] = useState({ title: '', amount: '', recurringDay: '' });
+  const [debtForm, setDebtForm] = useState({ person: '', amount: '', type: 'lent', note: '' }); // New Debt Form
   
   const [payBillData, setPayBillData] = useState(null);
 
@@ -205,8 +260,9 @@ export default function App() {
     const unsubT = onSnapshot(query(collection(db, "transactions"), orderBy("timestamp", "desc")), (snap) => setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
     const unsubB = onSnapshot(query(collection(db, "budgets")), (snap) => setBudgets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
     const unsubBills = onSnapshot(query(collection(db, "bills"), orderBy("createdAt", "desc")), (snap) => setBills(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+    const unsubDebts = onSnapshot(query(collection(db, "debts"), orderBy("createdAt", "desc")), (snap) => setDebts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))); // New Debt Listener
     
-    return () => { unsubW(); unsubT(); unsubB(); unsubBills(); };
+    return () => { unsubW(); unsubT(); unsubB(); unsubBills(); unsubDebts(); };
   }, []);
 
   const visibleWallets = wallets.filter(w => currentProfile === 'family' ? true : (w.owner === currentProfile || !w.owner));
@@ -227,10 +283,7 @@ export default function App() {
     return (parseFloat(wallet.initialBalance) || 0) + walletTx.reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
   };
 
-  // Calculate Total Wealth
   const totalWealth = visibleWallets.reduce((acc, wallet) => acc + calculateBalance(wallet), 0);
-
-  // My Pending Bills
   const myPendingBills = bills.filter(b => b.assignedTo === currentProfile && b.status !== 'paid');
 
   const reportStats = useMemo(() => {
@@ -277,7 +330,7 @@ export default function App() {
     }
   };
 
-  const handleOpenTransaction = (selectedType) => { setType(selectedType); setAmount(''); setCategory(''); setTransferToWalletId(''); setModalMode('add-transaction'); setIsFabOpen(false); };
+  const handleOpenTransaction = (selectedType) => { setType(selectedType); setAmount(''); setCategory(''); setTransferToWalletId(''); setTags(''); setModalMode('add-transaction'); setIsFabOpen(false); };
   const triggerAnimation = (animType) => { setAnimState({ active: true, type: animType, key: Date.now() }); setTimeout(() => setAnimState(prev => ({ ...prev, active: false })), 1500); };
 
   const handleSaveTransaction = async () => {
@@ -286,18 +339,21 @@ export default function App() {
     const timestamp = Date.now();
     const dateDisplay = new Date().toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
     try {
+      const tagArray = tags.split(' ').filter(t => t.trim() !== ''); // Process tags
+      const note = tagArray.length > 0 ? tagArray.map(t => t.startsWith('#') ? t : `#${t}`).join(' ') : '';
+
       if (type === 'transfer') {
         if (!transferToWalletId || transferToWalletId === activeWalletId) { setLoading(false); return showToast("ปลายทางไม่ถูกต้อง", "error"); }
         const toWalletName = wallets.find(w => w.id === transferToWalletId)?.name || 'Unknown';
-        await addDoc(collection(db, "transactions"), { amount: parseFloat(amount), category: `โอนไป ${toWalletName}`, type: 'expense', isTransfer: true, walletId: activeWalletId, timestamp, dateDisplay });
-        await addDoc(collection(db, "transactions"), { amount: parseFloat(amount), category: `รับจาก ${activeWallet.name}`, type: 'income', isTransfer: true, walletId: transferToWalletId, timestamp, dateDisplay });
+        await addDoc(collection(db, "transactions"), { amount: parseFloat(amount), category: `โอนไป ${toWalletName}`, type: 'expense', isTransfer: true, walletId: activeWalletId, timestamp, dateDisplay, note });
+        await addDoc(collection(db, "transactions"), { amount: parseFloat(amount), category: `รับจาก ${activeWallet.name}`, type: 'income', isTransfer: true, walletId: transferToWalletId, timestamp, dateDisplay, note });
         triggerAnimation('transfer');
       } else {
         if (!category) { setLoading(false); return showToast("เลือกหมวดหมู่", "error"); }
-        await addDoc(collection(db, "transactions"), { amount: parseFloat(amount), category, type, isTransfer: false, walletId: activeWalletId, timestamp, dateDisplay });
+        await addDoc(collection(db, "transactions"), { amount: parseFloat(amount), category, type, isTransfer: false, walletId: activeWalletId, timestamp, dateDisplay, note });
         triggerAnimation(type);
       }
-      setAmount(''); setCategory(''); setTransferToWalletId(''); setModalMode(null); showToast("บันทึกสำเร็จ!");
+      setAmount(''); setCategory(''); setTransferToWalletId(''); setTags(''); setModalMode(null); showToast("บันทึกสำเร็จ!");
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
 
@@ -363,10 +419,7 @@ export default function App() {
     } catch (error) { showToast(error.message, "error"); }
   };
 
-  const handlePayBillClick = (bill) => {
-    setPayBillData(bill);
-    setModalMode('pay-bill');
-  };
+  const handlePayBillClick = (bill) => { setPayBillData(bill); setModalMode('pay-bill'); };
 
   const confirmPayBill = async (walletId) => {
     if(!walletId) return showToast("กรุณาเลือกกระเป๋าที่จะจ่าย", "error");
@@ -395,6 +448,35 @@ export default function App() {
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
 
+  // --- Debt Functions ---
+  const handleAddDebt = async () => {
+    if (!debtForm.person || !debtForm.amount) return showToast("กรอกชื่อคนและจำนวนเงิน", "error");
+    setLoading(true);
+    try {
+      await addDoc(collection(db, "debts"), {
+        person: debtForm.person,
+        amount: parseFloat(debtForm.amount),
+        type: debtForm.type,
+        note: debtForm.note,
+        status: 'pending',
+        owner: currentProfile,
+        createdAt: Date.now()
+      });
+      setDebtForm({ person: '', amount: '', type: 'lent', note: '' });
+      setModalMode(null);
+      showToast("บันทึกหนี้สินเรียบร้อย");
+    } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
+  };
+
+  const handleSettleDebt = async (id) => {
+    if(confirm("รายการนี้เคลียร์ยอดแล้วใช่ไหม?")) {
+      try {
+        await deleteDoc(doc(db, "debts", id));
+        showToast("ลบรายการหนี้สินแล้ว");
+      } catch (error) { showToast(error.message, "error"); }
+    }
+  };
+
   const handleDeleteTransaction = async (id) => { if(confirm("ลบรายการ?")) await deleteDoc(doc(db, "transactions", id)); };
   const handleDeleteBudget = async (id) => { if(confirm("ลบงบประมาณ?")) { await deleteDoc(doc(db, "budgets", id)); setModalMode(null); }};
   const handleDeleteBill = async (id) => { if(confirm("ลบบิลนี้?")) await deleteDoc(doc(db, "bills", id)); };
@@ -407,6 +489,7 @@ export default function App() {
   };
   const openCreateBudget = () => { setBudgetForm({ id: null, category: '', limit: '' }); setModalMode('manage-budget'); };
   const openEditBudget = (b) => { setBudgetForm({ id: b.id, category: b.category, limit: b.limit }); setModalMode('manage-budget'); };
+  const openAddDebt = () => { setDebtForm({ person: '', amount: '', type: 'lent', note: '' }); setModalMode('add-debt'); };
   
   return (
     <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${theme.bg} text-gray-900`}>
@@ -432,7 +515,7 @@ export default function App() {
         {viewMode === 'dashboard' && (
           <div className="flex-1 flex flex-col transition-all duration-300 pb-32 opacity-100">
             
-            {/* Pending Bills Alert (New Feature) */}
+            {/* Pending Bills Alert */}
             {myPendingBills.length > 0 && (
               <div className="px-5 pt-4">
                 <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 shadow-sm">
@@ -442,13 +525,8 @@ export default function App() {
                   <div className="space-y-2">
                     {myPendingBills.map(bill => (
                       <div key={bill.id} className="flex justify-between items-center bg-white p-2 rounded-xl border border-purple-100">
-                        <div>
-                          <p className="font-bold text-gray-800 text-xs">{bill.title}</p>
-                          <p className="text-purple-600 font-bold text-sm">฿{bill.amount.toLocaleString()}</p>
-                        </div>
-                        <button onClick={() => handlePayBillClick(bill)} className="bg-purple-600 text-white text-[10px] px-3 py-1.5 rounded-lg shadow-sm hover:bg-purple-700">
-                          จ่ายเลย
-                        </button>
+                        <div><p className="font-bold text-gray-800 text-xs">{bill.title}</p><p className="text-purple-600 font-bold text-sm">฿{bill.amount.toLocaleString()}</p></div>
+                        <button onClick={() => handlePayBillClick(bill)} className="bg-purple-600 text-white text-[10px] px-3 py-1.5 rounded-lg shadow-sm hover:bg-purple-700">จ่ายเลย</button>
                       </div>
                     ))}
                   </div>
@@ -464,7 +542,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Wallets (Colored & Interactive) */}
+            {/* Wallets */}
             <div className="pt-4 pb-2">
               <div className="px-5 mb-2 flex justify-between items-center">
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">กระเป๋าเงิน</span>
@@ -478,22 +556,9 @@ export default function App() {
                     const balance = calculateBalance(wallet);
                     return (
                       <div key={wallet.id} className="relative group flex-shrink-0">
-                        <button 
-                          onClick={() => setActiveWalletId(wallet.id)} 
-                          className={`relative w-40 h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md 
-                            ${isActive 
-                              ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' 
-                              : 'scale-95 opacity-80 hover:opacity-100'}`}
-                          style={{ backgroundColor: wallet.color, color: 'white' }}
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-xl drop-shadow-sm">{wallet.icon}</span>
-                            {isActive && <span className="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold backdrop-blur-sm">ACTIVE</span>}
-                          </div>
-                          <div className="mt-auto">
-                            <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90">{wallet.name}</p>
-                            <span className="text-lg font-bold tracking-tight">{balance.toLocaleString()}</span>
-                          </div>
+                        <button onClick={() => setActiveWalletId(wallet.id)} className={`relative w-40 h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' : 'scale-95 opacity-80 hover:opacity-100'}`} style={{ backgroundColor: wallet.color, color: 'white' }}>
+                          <div className="flex justify-between items-start mb-1"><span className="text-xl drop-shadow-sm">{wallet.icon}</span>{isActive && <span className="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold backdrop-blur-sm">ACTIVE</span>}</div>
+                          <div className="mt-auto"><p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90">{wallet.name}</p><span className="text-lg font-bold tracking-tight">{balance.toLocaleString()}</span></div>
                           {isActive && <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>}
                         </button>
                         {isActive && currentProfile !== 'family' && <button onClick={() => openEditWallet(wallet)} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30"><Settings size={10} /></button>}
@@ -511,29 +576,16 @@ export default function App() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x">
                 {profileBudgets.length === 0 ? (
-                  <button onClick={openCreateBudget} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 gap-1 hover:bg-gray-50 transition-colors">
-                    <Plus size={16} /> <span className="text-[10px]">เริ่มตั้งงบประมาณ</span>
-                  </button>
+                  <button onClick={openCreateBudget} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 gap-1 hover:bg-gray-50 transition-colors"><Plus size={16} /> <span className="text-[10px]">เริ่มตั้งงบประมาณ</span></button>
                 ) : profileBudgets.map(b => {
                   const spent = getCategorySpent(b.category);
                   const percent = Math.min((spent / b.limit) * 100, 100);
                   const isOver = spent > b.limit;
                   return (
                     <div key={b.id} onClick={() => openEditBudget(b)} className="flex-shrink-0 w-36 bg-white p-3 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group cursor-pointer snap-start hover:border-gray-300">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-base">{expenseCategories.find(c => c.name === b.category)?.icon || '💸'}</span>
-                          <span className="text-[10px] font-bold truncate w-16 text-gray-700">{b.category}</span>
-                        </div>
-                        {isOver && <AlertCircle size={12} className="text-red-500 animate-pulse"/>}
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1">
-                        <div style={{ width: `${percent}%` }} className={`h-full rounded-full ${isOver ? 'bg-red-500' : percent > 80 ? 'bg-orange-500' : 'bg-green-500'} transition-all duration-500`}></div>
-                      </div>
-                      <div className="flex justify-between items-end">
-                        <span className={`text-[10px] font-bold ${isOver ? 'text-red-600' : 'text-gray-700'}`}>{spent.toLocaleString()}</span>
-                        <span className="text-[9px] text-gray-400">/ {b.limit.toLocaleString()}</span>
-                      </div>
+                      <div className="flex justify-between items-start mb-2"><div className="flex items-center gap-1.5"><span className="text-base">{expenseCategories.find(c => c.name === b.category)?.icon || '💸'}</span><span className="text-[10px] font-bold truncate w-16 text-gray-700">{b.category}</span></div>{isOver && <AlertCircle size={12} className="text-red-500 animate-pulse"/>}</div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1"><div style={{ width: `${percent}%` }} className={`h-full rounded-full ${isOver ? 'bg-red-500' : percent > 80 ? 'bg-orange-500' : 'bg-green-500'} transition-all duration-500`}></div></div>
+                      <div className="flex justify-between items-end"><span className={`text-[10px] font-bold ${isOver ? 'text-red-600' : 'text-gray-700'}`}>{spent.toLocaleString()}</span><span className="text-[9px] text-gray-400">/ {b.limit.toLocaleString()}</span></div>
                     </div>
                   );
                 })}
@@ -544,25 +596,15 @@ export default function App() {
             <div className="px-5 pt-2">
               <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1"><Activity size={12}/> รายการล่าสุด</h3>
               {currentWalletTransactions.length === 0 ? (
-                 <div className="py-8 flex flex-col items-center justify-center text-gray-400 gap-2 border border-dashed border-gray-300 rounded-xl bg-gray-50/50">
-                   <Wallet size={20} className="opacity-50"/><p className="text-[10px]">ยังไม่มีรายการ</p>
-                 </div>
+                 <div className="py-8 flex flex-col items-center justify-center text-gray-400 gap-2 border border-dashed border-gray-300 rounded-xl bg-gray-50/50"><Wallet size={20} className="opacity-50"/><p className="text-[10px]">ยังไม่มีรายการ</p></div>
               ) : (
                  <div className="space-y-2">
                    {currentWalletTransactions.map(t => (
                      <div key={t.id} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 active:scale-[0.99] transition-transform hover:border-gray-300">
-                        <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-lg ${t.type === 'income' ? 'bg-green-100' : t.type === 'transfer' ? 'bg-blue-100' : 'bg-red-100'}`}>
-                          {t.type === 'transfer' ? <ArrowRightLeft size={14} className="text-blue-600"/> : (t.type === 'income' ? (incomeCategories.find(c => c.name === t.category)?.icon || '💰') : (expenseCategories.find(c => c.name === t.category)?.icon || '💸'))}
-                        </div>
+                        <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-lg ${t.type === 'income' ? 'bg-green-100' : t.type === 'transfer' ? 'bg-blue-100' : 'bg-red-100'}`}>{t.type === 'transfer' ? <ArrowRightLeft size={14} className="text-blue-600"/> : (t.type === 'income' ? (incomeCategories.find(c => c.name === t.category)?.icon || '💰') : (expenseCategories.find(c => c.name === t.category)?.icon || '💸'))}</div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-baseline">
-                            <span className="font-semibold text-gray-800 text-xs truncate">{t.category}</span>
-                            <span className={`font-bold text-xs ${t.type === 'income' ? 'text-green-700' : t.type === 'transfer' ? 'text-blue-700' : 'text-red-600'}`}>{t.type === 'income' ? '+' : '-'} {t.amount.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between mt-0.5">
-                            <span className="text-[9px] text-gray-400">{t.dateDisplay} {t.note && `(${t.note})`}</span>
-                            {currentProfile !== 'family' && <button onClick={() => handleDeleteTransaction(t.id)} className="text-[9px] text-red-400 hover:text-red-600 px-1">ลบ</button>}
-                          </div>
+                          <div className="flex justify-between items-baseline"><span className="font-semibold text-gray-800 text-xs truncate">{t.category} {t.note && <span className="text-gray-400 font-normal ml-1 text-[10px]">{t.note}</span>}</span><span className={`font-bold text-xs ${t.type === 'income' ? 'text-green-700' : t.type === 'transfer' ? 'text-blue-700' : 'text-red-600'}`}>{t.type === 'income' ? '+' : '-'} {t.amount.toLocaleString()}</span></div>
+                          <div className="flex justify-between mt-0.5"><span className="text-[9px] text-gray-400">{t.dateDisplay}</span>{currentProfile !== 'family' && <button onClick={() => handleDeleteTransaction(t.id)} className="text-[9px] text-red-400 hover:text-red-600 px-1">ลบ</button>}</div>
                         </div>
                      </div>
                    ))}
@@ -572,84 +614,88 @@ export default function App() {
           </div>
         )}
 
-        {/* === BILLS / CHECKLIST VIEW (Only in Family) === */}
+        {/* === DEBTS VIEW === */}
+        {viewMode === 'debts' && (
+          <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-orange-600"/> สมุดหนี้สิน</h2>
+              <button onClick={openAddDebt} className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded-full shadow-lg hover:bg-orange-700 flex items-center gap-1 font-bold">+ เพิ่มรายการ</button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Lent (Green) */}
+              <div>
+                <h3 className="text-xs font-bold text-green-700 uppercase mb-2 ml-1">คนยืมเรา (รอเก็บ)</h3>
+                {debts.filter(d => d.type === 'lent' && d.owner === currentProfile).length === 0 && <p className="text-xs text-gray-400 ml-1">ไม่มีรายการ</p>}
+                <div className="space-y-2">
+                  {debts.filter(d => d.type === 'lent' && d.owner === currentProfile).map(debt => (
+                    <div key={debt.id} className="bg-white p-3 rounded-xl border-l-4 border-green-500 shadow-sm flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-gray-800 text-sm">{debt.person}</p>
+                        <p className="text-green-600 font-bold text-xs">฿{debt.amount.toLocaleString()}</p>
+                        {debt.note && <p className="text-[9px] text-gray-400">{debt.note}</p>}
+                      </div>
+                      <button onClick={() => handleSettleDebt(debt.id)} className="text-[10px] bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 px-2 py-1 rounded">เคลียร์แล้ว</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Borrowed (Red) */}
+              <div>
+                <h3 className="text-xs font-bold text-red-700 uppercase mb-2 ml-1">เรายืมเขา (รอคืน)</h3>
+                {debts.filter(d => d.type === 'borrowed' && d.owner === currentProfile).length === 0 && <p className="text-xs text-gray-400 ml-1">ไม่มีรายการ</p>}
+                <div className="space-y-2">
+                  {debts.filter(d => d.type === 'borrowed' && d.owner === currentProfile).map(debt => (
+                    <div key={debt.id} className="bg-white p-3 rounded-xl border-l-4 border-red-500 shadow-sm flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-gray-800 text-sm">{debt.person}</p>
+                        <p className="text-red-600 font-bold text-xs">฿{debt.amount.toLocaleString()}</p>
+                        {debt.note && <p className="text-[9px] text-gray-400">{debt.note}</p>}
+                      </div>
+                      <button onClick={() => handleSettleDebt(debt.id)} className="text-[10px] bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-700 px-2 py-1 rounded">คืนแล้ว</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* === BILLS VIEW === */}
         {viewMode === 'bills' && currentProfile === 'family' && (
           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><CheckSquare className="text-purple-600"/> บิลกลาง (รอจ่าย)</h2>
               <button onClick={() => setModalMode('add-bill')} className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-full shadow-lg hover:bg-purple-700 flex items-center gap-1 font-bold">+ เพิ่มบิล</button>
             </div>
-
-            {/* Bills List */}
             <div className="space-y-3">
-              {bills.filter(b => b.status !== 'paid').length === 0 && (
-                <div className="text-center py-10 text-gray-400 text-xs border-2 border-dashed border-gray-200 rounded-xl">ไม่มีบิลค้างจ่าย เยี่ยมมาก!</div>
-              )}
+              {bills.filter(b => b.status !== 'paid').length === 0 && <div className="text-center py-10 text-gray-400 text-xs border-2 border-dashed border-gray-200 rounded-xl">ไม่มีบิลค้างจ่าย เยี่ยมมาก!</div>}
               {bills.filter(b => b.status !== 'paid').map(bill => {
                 const isAssigned = !!bill.assignedTo;
-                const assignerName = bill.assignedBy ? getProfileName(bill.assignedBy) : 'ใครสักคน';
-                const assigneeName = bill.assignedTo ? getProfileName(bill.assignedTo) : '';
-                
                 return (
-                  <div key={bill.id} className={`bg-white p-4 rounded-xl border-l-4 shadow-sm transition-all ${isAssigned ? (bill.assignedTo === 'heart' ? 'border-l-blue-500' : 'border-l-pink-500') : 'border-l-gray-400'}`}>
+                  <div key={bill.id} className={`bg-white p-4 rounded-xl border-l-4 shadow-sm transition-all ${isAssigned ? (bill.assignedTo === 'hart' ? 'border-l-blue-500' : 'border-l-pink-500') : 'border-l-gray-400'}`}>
                     <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-gray-800 text-sm">{bill.title}</h3>
-                          {bill.recurringDay && <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded flex items-center gap-0.5"><CalendarClock size={10}/> ทุกวันที่ {bill.recurringDay}</span>}
-                        </div>
-                        <p className="text-lg font-bold text-purple-700">฿{bill.amount.toLocaleString()}</p>
-                      </div>
+                      <div><div className="flex items-center gap-2"><h3 className="font-bold text-gray-800 text-sm">{bill.title}</h3>{bill.recurringDay && <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded flex items-center gap-0.5"><CalendarClock size={10}/> ทุกวันที่ {bill.recurringDay}</span>}</div><p className="text-lg font-bold text-purple-700">฿{bill.amount.toLocaleString()}</p></div>
                       <button onClick={() => handleDeleteBill(bill.id)} className="text-gray-300 hover:text-red-400"><Trash2 size={14}/></button>
                     </div>
-
-                    {/* Actions Area */}
                     <div className="pt-2 border-t border-gray-100 mt-2">
                       {!isAssigned ? (
                         <div className="flex gap-2">
                           <span className="text-[10px] text-gray-400 flex items-center mr-auto">โยนให้ใครจ่าย?</span>
-                          <button onClick={() => handleAssignBill(bill.id, 'hart')} className="flex-1 bg-blue-50 text-blue-700 text-[10px] font-bold py-1.5 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-1 border border-blue-200">
-                            👉 {getProfileName('hart')}
-                          </button>
-                          <button onClick={() => handleAssignBill(bill.id, 'jah')} className="flex-1 bg-pink-50 text-pink-700 text-[10px] font-bold py-1.5 rounded-lg hover:bg-pink-100 flex items-center justify-center gap-1 border border-pink-200">
-                            👉 {getProfileName('jah')}
-                          </button>
+                          <button onClick={() => handleAssignBill(bill.id, 'hart')} className="flex-1 bg-blue-50 text-blue-700 text-[10px] font-bold py-1.5 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-1 border border-blue-200">👉 {getProfileName('hart')}</button>
+                          <button onClick={() => handleAssignBill(bill.id, 'jah')} className="flex-1 bg-pink-50 text-pink-700 text-[10px] font-bold py-1.5 rounded-lg hover:bg-pink-100 flex items-center justify-center gap-1 border border-pink-200">👉 {getProfileName('jah')}</button>
                         </div>
                       ) : (
                         <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <div className="text-xl">{profiles[bill.assignedTo]?.icon}</div>
-                            <div>
-                              <p className="text-[10px] text-gray-600 font-bold">รอ {assigneeName} จ่าย</p>
-                              {bill.assignedBy && <p className="text-[9px] text-gray-400">({assignerName} โยนมา)</p>}
-                            </div>
-                          </div>
-                          
-                          <div className="flex gap-1">
-                             {/* Undo Assign */}
-                             <button onClick={() => handleUnassignBill(bill.id)} className="p-1.5 rounded-lg bg-gray-200 text-gray-500 hover:bg-gray-300"><Undo2 size={14}/></button>
-                             {/* Pay Button */}
-                             <button onClick={() => handlePayBillClick(bill)} className="bg-green-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow hover:bg-green-600 flex items-center gap-1">
-                                <CheckCircle2 size={12}/> จ่ายแล้ว
-                             </button>
-                          </div>
+                          <div className="flex items-center gap-2"><div className="text-xl">{profiles[bill.assignedTo]?.icon}</div><div><p className="text-[10px] text-gray-600 font-bold">รอ {getProfileName(bill.assignedTo)} จ่าย</p>{bill.assignedBy && <p className="text-[9px] text-gray-400">({getProfileName(bill.assignedBy)} โยนมา)</p>}</div></div>
+                          <div className="flex gap-1"><button onClick={() => handleUnassignBill(bill.id)} className="p-1.5 rounded-lg bg-gray-200 text-gray-500 hover:bg-gray-300"><Undo2 size={14}/></button><button onClick={() => handlePayBillClick(bill)} className="bg-green-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow hover:bg-green-600 flex items-center gap-1"><CheckCircle2 size={12}/> จ่ายแล้ว</button></div>
                         </div>
                       )}
                     </div>
                   </div>
                 );
               })}
-            </div>
-
-            {/* Paid History */}
-            <div className="mt-8">
-              <h3 className="text-xs font-bold text-gray-400 uppercase mb-3">ประวัติการจ่ายล่าสุด</h3>
-              {bills.filter(b => b.status === 'paid').slice(0, 5).map(b => (
-                <div key={b.id} className="flex justify-between items-center py-2 border-b border-gray-100 text-xs text-gray-400 opacity-70">
-                  <span className="line-through">{b.title}</span>
-                  <span className="line-through">{b.amount.toLocaleString()}</span>
-                </div>
-              ))}
             </div>
           </div>
         )}
@@ -666,34 +712,24 @@ export default function App() {
               </div>
             </div>
 
+            {/* Calendar Heatmap */}
+            <CalendarHeatmap transactions={transactions} />
+
             <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm mb-6 flex flex-col items-center">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">สัดส่วนการเงิน</h3>
               <SimpleDonutChart income={reportStats.income} expense={reportStats.expense} />
-              
               <div className="grid grid-cols-2 gap-4 w-full mt-6">
-                <div className="text-center p-3 bg-green-50 rounded-xl border border-green-100">
-                  <p className="text-[10px] text-green-600 font-bold mb-1">รายรับ</p>
-                  <p className="font-bold text-green-800">{reportStats.income.toLocaleString()}</p>
-                </div>
-                <div className="text-center p-3 bg-red-50 rounded-xl border border-red-100">
-                  <p className="text-[10px] text-red-600 font-bold mb-1">รายจ่าย</p>
-                  <p className="font-bold text-red-800">{reportStats.expense.toLocaleString()}</p>
-                </div>
+                <div className="text-center p-3 bg-green-50 rounded-xl border border-green-100"><p className="text-[10px] text-green-600 font-bold mb-1">รายรับ</p><p className="font-bold text-green-800">{reportStats.income.toLocaleString()}</p></div>
+                <div className="text-center p-3 bg-red-50 rounded-xl border border-red-100"><p className="text-[10px] text-red-600 font-bold mb-1">รายจ่าย</p><p className="font-bold text-red-800">{reportStats.expense.toLocaleString()}</p></div>
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">อันดับค่าใช้จ่าย</h3>
-              {reportStats.sortedCats.length === 0 ? (
-                <div className="text-center py-8 text-gray-300 text-xs">ว่างเปล่า... ดีแล้ว!</div>
-              ) : (
-                reportStats.sortedCats.map(([catName, amount]) => {
+              {reportStats.sortedCats.length === 0 ? <div className="text-center py-8 text-gray-300 text-xs">ว่างเปล่า... ดีแล้ว!</div> : reportStats.sortedCats.map(([catName, amount]) => {
                   const catInfo = expenseCategories.find(c => c.name === catName) || { icon: '💸', color: '#94a3b8' };
-                  return (
-                    <CategoryBar key={catName} category={catName} amount={amount} total={reportStats.expense} color={catInfo.color} icon={catInfo.icon}/>
-                  );
-                })
-              )}
+                  return <CategoryBar key={catName} category={catName} amount={amount} total={reportStats.expense} color={catInfo.color} icon={catInfo.icon}/>;
+              })}
             </div>
           </div>
         )}
@@ -704,10 +740,13 @@ export default function App() {
             <Home size={18} />{viewMode === 'dashboard' && <span className="text-xs font-bold animate-in fade-in slide-in-from-left-2">หน้าหลัก</span>}
           </button>
           
-          {/* Bills Button: Only Show in Family Profile */}
-          {currentProfile === 'family' && (
+          {currentProfile === 'family' ? (
             <button onClick={() => setViewMode('bills')} className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-all ${viewMode === 'bills' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}>
               <CheckSquare size={18} />{viewMode === 'bills' && <span className="text-xs font-bold animate-in fade-in slide-in-from-left-2">บิลกลาง</span>}
+            </button>
+          ) : (
+            <button onClick={() => setViewMode('debts')} className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-all ${viewMode === 'debts' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}>
+              <BookOpen size={18} />{viewMode === 'debts' && <span className="text-xs font-bold animate-in fade-in slide-in-from-left-2">หนี้สิน</span>}
             </button>
           )}
 
@@ -716,7 +755,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* FAB (Only Dashboard & Not Family) */}
+        {/* FAB */}
         {currentProfile !== 'family' && viewMode === 'dashboard' && (
           <>
             {isFabOpen && <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] animate-in fade-in" onClick={() => setIsFabOpen(false)}></div>}
@@ -739,12 +778,13 @@ export default function App() {
                 <button onClick={() => setType('transfer')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'transfer' ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-400'}`}><ArrowRightLeft size={14}/> โอนเงิน</button>
                 <button onClick={() => setType('income')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-green-50 text-green-600 shadow-sm' : 'text-gray-400'}`}><TrendingUp size={14}/> รายรับ</button>
               </div>
-              <div className="mb-6">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label>
-                <div className="relative"><input type="number" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/><span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span></div>
-              </div>
+              <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label><div className="relative"><input type="number" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/><span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span></div></div>
+              
+              {/* Tags Input */}
+              <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">แฮชแท็ก (เว้นวรรคเพื่อแยก)</label><input type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="#เที่ยว #กาแฟ" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400"/></div>
+
               {type === 'transfer' ? (
-                <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">ไปยังกระเป๋า</label><div className="space-y-2">{wallets.filter(w => w.id !== activeWalletId).map(w => (<button key={w.id} onClick={() => setTransferToWalletId(w.id)} className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all bg-white ${transferToWalletId === w.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`}><div className="flex items-center gap-3"><span className="text-xl">{w.icon}</span><span className="font-semibold text-sm">{w.name}</span></div>{transferToWalletId === w.id && <div className="bg-blue-100 p-1 rounded-full text-blue-600"><ArrowRight size={14}/></div>}</button>))}</div></div>
+                <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">ไปยังกระเป๋า</label><div className="space-y-2">{wallets.filter(w => w.id !== activeWalletId).map(w => (<button key={w.id} onClick={() => setTransferToWalletId(w.id)} className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all bg-white ${transferToWalletId === w.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`}><div className="flex items-center gap-3"><span className="text-xl" style={{color: w.color}}>{w.icon}</span><span className="font-semibold text-sm">{w.name}</span></div>{transferToWalletId === w.id && <div className="bg-blue-100 p-1 rounded-full text-blue-600"><ArrowRight size={14}/></div>}</button>))}</div></div>
               ) : (
                 <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">หมวดหมู่</label><div className="grid grid-cols-4 gap-3">{(type === 'expense' ? expenseCategories : incomeCategories).map(cat => (<button key={cat.id} onClick={() => setCategory(cat.name)} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div></div>
               )}
@@ -758,20 +798,28 @@ export default function App() {
           <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200">
             <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">เพิ่มบิลกลาง</h2><div className="w-10"></div></div>
             <div className="flex-1 p-6">
-              <div className="mb-4">
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อบิล (เช่น ค่าไฟ, ค่าเน็ต)</label>
-                <input type="text" autoFocus value={billForm.title} onChange={e => setBillForm({...billForm, title: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="..."/>
-              </div>
-              <div className="mb-4">
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ยอดเงินที่ต้องจ่าย</label>
-                <input type="number" value={billForm.amount} onChange={e => setBillForm({...billForm, amount: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xl font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="0.00"/>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">จ่ายทุกวันที่ (Recurring Day)</label>
-                <input type="number" min="1" max="31" value={billForm.recurringDay} onChange={e => setBillForm({...billForm, recurringDay: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="1-31 (ว่างได้)"/>
-              </div>
+              <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อบิล</label><input type="text" autoFocus value={billForm.title} onChange={e => setBillForm({...billForm, title: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="..."/></div>
+              <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ยอดเงิน</label><input type="number" value={billForm.amount} onChange={e => setBillForm({...billForm, amount: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xl font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="0.00"/></div>
+              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">จ่ายทุกวันที่</label><input type="number" min="1" max="31" value={billForm.recurringDay} onChange={e => setBillForm({...billForm, recurringDay: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="1-31"/></div>
             </div>
             <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleAddBill} disabled={loading} className="w-full bg-purple-600 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">{loading ? '...' : 'สร้างบิล'}</button></div>
+          </div>
+        )}
+
+        {/* MODAL: ADD DEBT */}
+        {modalMode === 'add-debt' && (
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">เพิ่มรายการหนี้</h2><div className="w-10"></div></div>
+            <div className="flex-1 p-6">
+              <div className="bg-white p-1 rounded-xl flex font-bold text-xs mb-6 shadow-sm border border-gray-100">
+                <button onClick={() => setDebtForm({...debtForm, type: 'lent'})} className={`flex-1 py-2.5 rounded-lg transition-all ${debtForm.type === 'lent' ? 'bg-green-100 text-green-700' : 'text-gray-400'}`}>คนยืมเรา (รายรับ)</button>
+                <button onClick={() => setDebtForm({...debtForm, type: 'borrowed'})} className={`flex-1 py-2.5 rounded-lg transition-all ${debtForm.type === 'borrowed' ? 'bg-red-100 text-red-700' : 'text-gray-400'}`}>เรายืมเขา (รายจ่าย)</button>
+              </div>
+              <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อคน</label><input type="text" autoFocus value={debtForm.person} onChange={e => setDebtForm({...debtForm, person: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-500" placeholder="..."/></div>
+              <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">จำนวนเงิน</label><input type="number" value={debtForm.amount} onChange={e => setDebtForm({...debtForm, amount: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xl font-bold text-gray-800 outline-none focus:border-orange-500" placeholder="0.00"/></div>
+              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">หมายเหตุ</label><input type="text" value={debtForm.note} onChange={e => setDebtForm({...debtForm, note: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-orange-500" placeholder="..."/></div>
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleAddDebt} disabled={loading} className="w-full bg-orange-600 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">{loading ? '...' : 'บันทึก'}</button></div>
           </div>
         )}
 
@@ -779,38 +827,13 @@ export default function App() {
         {modalMode === 'pay-bill' && payBillData && (
           <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl animate-in zoom-in-95">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-800">จ่ายด้วยกระเป๋าไหน?</h3>
-                <button onClick={() => { setModalMode(null); setPayBillData(null); }} className="p-1 rounded-full hover:bg-gray-100"><X size={20}/></button>
-              </div>
-              
-              <div className="mb-4 p-3 bg-purple-50 rounded-xl border border-purple-100">
-                <p className="text-xs text-gray-500 font-bold uppercase">ยอดชำระ</p>
-                <div className="flex justify-between items-end">
-                  <p className="text-xl font-bold text-purple-700">{payBillData.title}</p>
-                  <p className="text-xl font-bold text-purple-700">฿{payBillData.amount.toLocaleString()}</p>
-                </div>
-              </div>
-
+              <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold text-gray-800">จ่ายด้วยกระเป๋าไหน?</h3><button onClick={() => { setModalMode(null); setPayBillData(null); }} className="p-1 rounded-full hover:bg-gray-100"><X size={20}/></button></div>
+              <div className="mb-4 p-3 bg-purple-50 rounded-xl border border-purple-100"><p className="text-xs text-gray-500 font-bold uppercase">ยอดชำระ</p><div className="flex justify-between items-end"><p className="text-xl font-bold text-purple-700">{payBillData.title}</p><p className="text-xl font-bold text-purple-700">฿{payBillData.amount.toLocaleString()}</p></div></div>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 <p className="text-[10px] font-bold text-gray-400 uppercase">กระเป๋าของ {getProfileName(payBillData.assignedTo)}</p>
-                {wallets.filter(w => w.owner === payBillData.assignedTo).length === 0 && (
-                  <p className="text-xs text-red-500">ไม่พบกระเป๋าเงินของ {getProfileName(payBillData.assignedTo)}</p>
-                )}
                 {wallets.filter(w => w.owner === payBillData.assignedTo).map(wallet => (
-                  <button 
-                    key={wallet.id} 
-                    onClick={() => confirmPayBill(wallet.id)}
-                    className="w-full p-3 rounded-xl border border-gray-200 flex items-center justify-between hover:border-blue-500 hover:bg-blue-50 transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl" style={{color: wallet.color}}>{wallet.icon}</span>
-                      <div className="text-left">
-                        <p className="font-bold text-sm text-gray-800">{wallet.name}</p>
-                        <p className="text-xs text-gray-500">คงเหลือ: {calculateBalance(wallet).toLocaleString()}</p>
-                      </div>
-                    </div>
-                    <ArrowRight size={16} className="text-gray-400"/>
+                  <button key={wallet.id} onClick={() => confirmPayBill(wallet.id)} className="w-full p-3 rounded-xl border border-gray-200 flex items-center justify-between hover:border-blue-500 hover:bg-blue-50 transition-all">
+                    <div className="flex items-center gap-3"><span className="text-xl" style={{color: wallet.color}}>{wallet.icon}</span><div className="text-left"><p className="font-bold text-sm text-gray-800">{wallet.name}</p><p className="text-xs text-gray-500">คงเหลือ: {calculateBalance(wallet).toLocaleString()}</p></div></div><ArrowRight size={16} className="text-gray-400"/>
                   </button>
                 ))}
               </div>
@@ -823,8 +846,6 @@ export default function App() {
           <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200">
              <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180"/></button><h2 className="text-base font-bold text-gray-800">{walletForm.id ? 'แก้ไขกระเป๋า' : 'สร้างกระเป๋าใหม่'}</h2><div className="w-10"></div></div>
             <div className="flex-1 p-6 space-y-5 overflow-y-auto">
-              <div className="bg-white p-3 rounded-xl flex items-center gap-3 border border-gray-200 shadow-sm"><div className="p-2 bg-gray-50 rounded-full">{profiles[walletForm.owner]?.icon}</div><div><p className="text-[10px] text-gray-400 font-bold uppercase">เจ้าของ</p><p className="font-semibold text-gray-800 text-sm">{profiles[walletForm.owner]?.name}</p></div></div>
-              
               {/* Name & Balance */}
               <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อกระเป๋า</label><input type="text" value={walletForm.name} onChange={e => setWalletForm({...walletForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น เงินเดือน"/></div>
               <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">เงินตั้งต้น</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00"/></div>
@@ -834,12 +855,7 @@ export default function App() {
                 <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ธนาคาร (ทางลัด)</label>
                 <div className="grid grid-cols-4 gap-2">
                   {bankPresets.map(bank => (
-                    <button 
-                      key={bank.name} 
-                      onClick={() => setWalletForm({ ...walletForm, name: bank.name, color: bank.color, icon: bank.icon })}
-                      className="flex flex-col items-center justify-center p-2 rounded-xl border border-gray-100 bg-white shadow-sm hover:scale-105 transition-transform"
-                      style={{ borderTop: `4px solid ${bank.color}` }}
-                    >
+                    <button key={bank.name} onClick={() => setWalletForm({ ...walletForm, name: bank.name, color: bank.color, icon: bank.icon })} className="flex flex-col items-center justify-center p-2 rounded-xl border border-gray-100 bg-white shadow-sm hover:scale-105 transition-transform" style={{ borderTop: `4px solid ${bank.color}` }}>
                       <span className="font-bold text-xs">{bank.name}</span>
                     </button>
                   ))}
@@ -848,25 +864,11 @@ export default function App() {
 
               {/* Icon Picker */}
               <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ไอคอน หรือ ตัวย่อ</label>
-                <div className="flex gap-2">
-                   <input type="text" maxLength={4} value={walletForm.icon} onChange={e => setWalletForm({...walletForm, icon: e.target.value})} className="w-16 text-center bg-white border border-gray-200 rounded-xl px-2 py-2 font-bold text-lg outline-none focus:border-blue-500" />
-                   <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar flex-1">{iconsList.map(icon => (<button key={icon} onClick={() => setWalletForm({...walletForm, icon})} className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 transition-all flex-shrink-0 bg-white ${walletForm.icon === icon ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>{icon}</button>))}</div>
-                </div>
+                <div className="flex gap-2"><input type="text" maxLength={4} value={walletForm.icon} onChange={e => setWalletForm({...walletForm, icon: e.target.value})} className="w-16 text-center bg-white border border-gray-200 rounded-xl px-2 py-2 font-bold text-lg outline-none focus:border-blue-500" /><div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar flex-1">{iconsList.map(icon => (<button key={icon} onClick={() => setWalletForm({...walletForm, icon})} className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 transition-all flex-shrink-0 bg-white ${walletForm.icon === icon ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>{icon}</button>))}</div></div>
               </div>
 
               {/* Color Picker */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">สีธีม</label>
-                <div className="flex items-center gap-4">
-                  <input 
-                    type="color" 
-                    value={walletForm.color} 
-                    onChange={e => setWalletForm({...walletForm, color: e.target.value})}
-                    className="w-12 h-12 rounded-full border-2 border-gray-200 cursor-pointer"
-                  />
-                  <span className="text-xs text-gray-500 font-mono">{walletForm.color}</span>
-                </div>
-              </div>
+              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">สีธีม</label><div className="flex items-center gap-4"><input type="color" value={walletForm.color} onChange={e => setWalletForm({...walletForm, color: e.target.value})} className="w-12 h-12 rounded-full border-2 border-gray-200 cursor-pointer"/><span className="text-xs text-gray-500 font-mono">{walletForm.color}</span></div></div>
             </div>
             <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveWallet} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกกระเป๋า'}</button></div>
           </div>
