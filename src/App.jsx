@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake } from 'lucide-react';
+import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake, UserCog } from 'lucide-react';
 
 // --- Firebase Config & Init ---
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, writeBatch, where, getDocs } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, writeBatch, where, getDocs, setDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyByueq9po9xamWC4y6gLokjj_jOlOjfDHI",
@@ -19,7 +19,19 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // --- Static Data ---
-const iconsList = ['💵', '💳', '🏦', '🐷', '🏠', '🚗', '✈️', '🛍️', '🎓', '💼', '💄', '💅', '🎮', '⚽', '🍔', '☕', '💡', '💧', '📶'];
+// Expanded Icon List (80+ Icons)
+const iconsList = [
+  '💵', '💳', '🏦', '🐷', '💎', '💰', '🪙', '💸', 
+  '🏠', '🚗', '🛵', '✈️', '🚀', '🚤', '🚂', '🚌',
+  '🍔', '🍕', '🍜', '☕', '🍺', '🍷', '🍿', '🍰', '🍎', '🥦', '🥩',
+  '🛍️', '👠', '👔', '🧢', '💍', '⌚', '🕶️', '🎒',
+  '💻', '📱', '📷', '🎧', '🎮', '🔋', '💡', '🔌',
+  '🏥', '💊', '💪', '🧘', '⚽', '🏀', '🎾', '⛳', '🏊',
+  '🐶', '🐱', '🐹', '🐰', '🐠', '🪴', '🌻', '🌲',
+  '📚', '🎓', '✏️', '🎨', '🎸', '🎤', '🎬', '🎫',
+  '👶', '🎁', '🧸', '🎉', '🕯️', '🧼', '🧻', '🧹',
+  '❤️', '⭐', '🔥', '💧', '⚡', '🌤️', '🌙', '🔒'
+];
 
 const bankPresets = [
   { name: 'KBank', color: '#138f2d', icon: 'K' },
@@ -29,15 +41,37 @@ const bankPresets = [
   { name: 'Krungsri', color: '#fec43b', icon: 'BAY' },
   { name: 'TTB', color: '#0050f0', icon: 'ttb' },
   { name: 'GSB', color: '#eb198d', icon: 'GSB' },
+  { name: 'TrueMoney', color: '#ff5c00', icon: 'TM' },
+  { name: 'Cash', color: '#64748b', icon: '💵' },
 ];
 
+const colorsList = [
+  { id: 'blue', class: 'from-blue-700 to-blue-900', hex: '#1e40af', bg: 'bg-blue-50', text: 'text-blue-900', accent: 'bg-blue-600' },
+  { id: 'emerald', class: 'from-emerald-700 to-emerald-900', hex: '#047857', bg: 'bg-emerald-50', text: 'text-emerald-900', accent: 'bg-emerald-600' },
+  { id: 'rose', class: 'from-rose-500 to-rose-700', hex: '#be123c', bg: 'bg-rose-50', text: 'text-rose-900', accent: 'bg-rose-500' },
+  { id: 'purple', class: 'from-purple-600 to-purple-800', hex: '#7e22ce', bg: 'bg-purple-50', text: 'text-purple-900', accent: 'bg-purple-600' },
+  { id: 'slate', class: 'from-slate-700 to-slate-900', hex: '#334155', bg: 'bg-slate-50', text: 'text-slate-900', accent: 'bg-slate-800' },
+  { id: 'orange', class: 'from-orange-600 to-orange-800', hex: '#c2410c', bg: 'bg-orange-50', text: 'text-orange-900', accent: 'bg-orange-600' },
+  { id: 'pink', class: 'from-pink-500 to-pink-700', hex: '#be185d', bg: 'bg-pink-50', text: 'text-pink-900', accent: 'bg-pink-500' },
+  { id: 'cyan', class: 'from-cyan-600 to-cyan-800', hex: '#0891b2', bg: 'bg-cyan-50', text: 'text-cyan-900', accent: 'bg-cyan-600' },
+  { id: 'amber', class: 'from-amber-500 to-amber-700', hex: '#d97706', bg: 'bg-amber-50', text: 'text-amber-900', accent: 'bg-amber-500' },
+  { id: 'indigo', class: 'from-indigo-600 to-indigo-800', hex: '#4f46e5', bg: 'bg-indigo-50', text: 'text-indigo-900', accent: 'bg-indigo-600' },
+];
+
+// Expanded Categories
 const expenseCategories = [
   { id: 'food', name: 'อาหาร', icon: '🍔', color: '#ef4444' },
   { id: 'travel', name: 'เดินทาง', icon: '🚕', color: '#3b82f6' },
   { id: 'shop', name: 'ช้อปปิ้ง', icon: '🛍️', color: '#a855f7' },
   { id: 'bill', name: 'บิล/น้ำไฟ', icon: '🧾', color: '#eab308' },
-  { id: 'ent', name: 'บันเทิง', icon: '🍿', color: '#ec4899' },
+  { id: 'home', name: 'ของใช้บ้าน', icon: '🏠', color: '#14b8a6' },
+  { id: 'health', name: 'สุขภาพ', icon: '💊', color: '#ef4444' },
   { id: 'beauty', name: 'ความงาม', icon: '💅', color: '#f43f5e' },
+  { id: 'ent', name: 'บันเทิง', icon: '🍿', color: '#ec4899' },
+  { id: 'pet', name: 'สัตว์เลี้ยง', icon: '🐶', color: '#f97316' },
+  { id: 'sub', name: 'Subscription', icon: '📺', color: '#6366f1' },
+  { id: 'donate', name: 'บริจาค', icon: '🙏', color: '#8b5cf6' },
+  { id: 'gadget', name: 'IT/Gadget', icon: '📱', color: '#3b82f6' },
   { id: 'other', name: 'อื่นๆ', icon: '✨', color: '#64748b' },
 ];
 
@@ -46,12 +80,14 @@ const incomeCategories = [
   { id: 'bonus', name: 'โบนัส', icon: '🎁' },
   { id: 'sell', name: 'ขายของ', icon: '📈' },
   { id: 'gift', name: 'ได้เงิน', icon: '🧧' },
+  { id: 'invest', name: 'ลงทุน', icon: '💎' },
 ];
 
-const profiles = {
-  hart: { name: 'Heart', theme: 'blue', bg: 'bg-blue-100', primary: 'bg-blue-800', text: 'text-blue-950', icon: '👨🏻' },
-  jah: { name: 'Jah', theme: 'rose', bg: 'bg-rose-100', primary: 'bg-rose-700', text: 'text-rose-950', icon: '👩🏻' },
-  family: { name: 'Family', theme: 'slate', bg: 'bg-slate-200', primary: 'bg-slate-800', text: 'text-slate-900', icon: '🏠' }
+// Default Profiles
+const defaultProfiles = {
+  hart: { name: 'Heart', theme: 'blue', icon: '👨🏻' },
+  jah: { name: 'Jah', theme: 'rose', icon: '👩🏻' },
+  family: { name: 'Family', theme: 'slate', icon: '🏠' }
 };
 
 // --- Custom Components ---
@@ -115,6 +151,25 @@ const CategoryBar = ({ category, amount, total, color, icon }) => {
   );
 };
 
+const Particles = ({ active, type }) => {
+  if (!active) return null;
+  const particles = Array.from({ length: 20 });
+  let colorClass = 'from-red-500 to-orange-500';
+  let animName = 'animate-fly-up';
+  if (type === 'income') { colorClass = 'from-green-400 to-yellow-400'; animName = 'animate-fly-down'; }
+  else if (type === 'transfer') { colorClass = 'from-blue-400 to-cyan-400'; animName = 'animate-fly-across'; }
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[70] overflow-hidden">
+      {particles.map((_, i) => (<div key={i} className={`absolute w-4 h-4 rounded-full bg-gradient-to-r shadow-md ${colorClass} ${animName}`} style={{ left: '50%', top: '50%', '--tx': `${(Math.random() - 0.5) * 350}px`, '--ty': type === 'income' ? `${window.innerHeight * 0.4}px` : `-${window.innerHeight * 0.4}px`, '--tr': type === 'transfer' ? `${(Math.random() > 0.5 ? 1 : -1) * window.innerWidth}px` : '0px', '--d': `${Math.random() * 0.3}s`, '--s': `${0.8 + Math.random() * 1.2}` }} />))}
+    </div>
+  );
+};
+
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
+  return (<div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 whitespace-nowrap ${type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`}>{type === 'success' ? <CheckCircle2 size={18} className="text-green-400"/> : <AlertCircle size={18} className="text-red-200"/>}<span className="text-sm font-medium font-sans">{message}</span></div>);
+};
+
 const CalendarHeatmap = ({ transactions }) => {
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -150,25 +205,6 @@ const CalendarHeatmap = ({ transactions }) => {
   );
 };
 
-const Particles = ({ active, type }) => {
-  if (!active) return null;
-  const particles = Array.from({ length: 20 });
-  let colorClass = 'from-red-500 to-orange-500';
-  let animName = 'animate-fly-up';
-  if (type === 'income') { colorClass = 'from-green-400 to-yellow-400'; animName = 'animate-fly-down'; }
-  else if (type === 'transfer') { colorClass = 'from-blue-400 to-cyan-400'; animName = 'animate-fly-across'; }
-  return (
-    <div className="fixed inset-0 pointer-events-none z-[70] overflow-hidden">
-      {particles.map((_, i) => (<div key={i} className={`absolute w-4 h-4 rounded-full bg-gradient-to-r shadow-md ${colorClass} ${animName}`} style={{ left: '50%', top: '50%', '--tx': `${(Math.random() - 0.5) * 350}px`, '--ty': type === 'income' ? `${window.innerHeight * 0.4}px` : `-${window.innerHeight * 0.4}px`, '--tr': type === 'transfer' ? `${(Math.random() > 0.5 ? 1 : -1) * window.innerWidth}px` : '0px', '--d': `${Math.random() * 0.3}s`, '--s': `${0.8 + Math.random() * 1.2}` }} />))}
-    </div>
-  );
-};
-
-const Toast = ({ message, type, onClose }) => {
-  useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
-  return (<div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 whitespace-nowrap ${type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`}>{type === 'success' ? <CheckCircle2 size={18} className="text-green-400"/> : <AlertCircle size={18} className="text-red-200"/>}<span className="text-sm font-medium font-sans">{message}</span></div>);
-};
-
 export default function App() {
   const [wallets, setWallets] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -177,11 +213,11 @@ export default function App() {
   const [debts, setDebts] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [events, setEvents] = useState([]);
+  const [appProfiles, setAppProfiles] = useState(defaultProfiles);
   
   const [activeWalletId, setActiveWalletId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentProfile, setCurrentProfile] = useState('hart');
-  const [customSpaceNames, setCustomSpaceNames] = useState({});
   const [viewMode, setViewMode] = useState('dashboard'); 
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [reportRange, setReportRange] = useState('month');
@@ -201,9 +237,11 @@ export default function App() {
   const [budgetForm, setBudgetForm] = useState({ id: null, category: '', limit: '' });
   const [billForm, setBillForm] = useState({ title: '', amount: '', recurringDay: '' });
   const [debtForm, setDebtForm] = useState({ person: '', amount: '', type: 'lent', note: '' });
-  const [wishlistForm, setWishlistForm] = useState({ id: null, title: '', price: '', link: '', notes: '', status: 'pending' }); // Updated for edit
-  const [eventForm, setEventForm] = useState({ id: null, title: '', date: '', items: [] }); // Updated for edit
+  const [wishlistForm, setWishlistForm] = useState({ id: null, title: '', price: '', link: '', notes: '', status: 'pending' });
+  const [eventForm, setEventForm] = useState({ id: null, title: '', date: '', items: [] });
   const [eventItemForm, setEventItemForm] = useState({ name: '', cost: '' });
+  
+  const [profileForm, setProfileForm] = useState({ name: '', icon: '', theme: '' });
 
   const [payBillData, setPayBillData] = useState(null);
 
@@ -221,8 +259,6 @@ export default function App() {
       .animate-fly-across { animation: fly-across 0.8s ease-out forwards; animation-delay: var(--d); }
     `;
     document.head.appendChild(style);
-    const savedNames = localStorage.getItem('customSpaceNames');
-    if (savedNames) setCustomSpaceNames(JSON.parse(savedNames));
     return () => document.head.removeChild(style);
   }, []);
 
@@ -241,12 +277,20 @@ export default function App() {
     const unsubWish = onSnapshot(query(collection(db, "wishlist"), orderBy("createdAt", "desc")), (snap) => setWishlist(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
     const unsubEvents = onSnapshot(query(collection(db, "events"), orderBy("date", "asc")), (snap) => setEvents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
     
-    return () => { unsubW(); unsubT(); unsubB(); unsubBills(); unsubDebts(); unsubWish(); unsubEvents(); };
+    // Load Profile Settings from Firestore
+    const unsubProfiles = onSnapshot(doc(db, "app_settings", "profiles_config"), (doc) => {
+        if (doc.exists()) {
+            setAppProfiles(doc.data());
+        } else {
+            setDoc(doc.ref, defaultProfiles); // Initialize if empty
+        }
+    });
+
+    return () => { unsubW(); unsubT(); unsubB(); unsubBills(); unsubDebts(); unsubWish(); unsubEvents(); unsubProfiles(); };
   }, []);
 
   const visibleWallets = wallets.filter(w => currentProfile === 'family' ? true : (w.owner === currentProfile || !w.owner));
-  const getProfileName = (key) => customSpaceNames[key] || profiles[key].name;
-
+  
   useEffect(() => {
     if (visibleWallets.length > 0 && !visibleWallets.find(w => w.id === activeWalletId)) setActiveWalletId(visibleWallets[0].id);
     else if (visibleWallets.length === 0) setActiveWalletId(null);
@@ -276,7 +320,6 @@ export default function App() {
   const totalWealth = visibleWallets.reduce((acc, wallet) => acc + calculateBalance(wallet), 0);
   const myPendingBills = bills.filter(b => b.assignedTo === currentProfile && b.status !== 'paid');
   
-  // Daily Budget
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const profileBudgets = budgets.filter(b => currentProfile === 'family' ? true : (b.owner === currentProfile));
@@ -324,17 +367,33 @@ export default function App() {
         return t.category === catName && t.type === 'expense' && !t.isTransfer && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear && visibleWallets.some(w => w.id === t.walletId);
       }).reduce((sum, t) => sum + t.amount, 0);
 
-  const theme = profiles[currentProfile];
-  const displaySpaceName = getProfileName(currentProfile) + (currentProfile !== 'family' ? "'s Space" : "");
+  // Dynamic Theme Based on currentProfile
+  const profileData = appProfiles[currentProfile];
+  const themeColor = colorsList.find(c => c.id === profileData.theme) || colorsList[0];
 
   // Actions
-  const handleEditSpaceName = () => {
-    const newName = prompt("ตั้งชื่อ Space ของคุณ:", customSpaceNames[currentProfile] || profiles[currentProfile].name);
-    if (newName?.trim()) {
-      const updatedNames = { ...customSpaceNames, [currentProfile]: newName };
-      setCustomSpaceNames(updatedNames);
-      localStorage.setItem('customSpaceNames', JSON.stringify(updatedNames));
-    }
+  const handleEditProfile = () => {
+      if (currentProfile === 'family') return showToast("โปรไฟล์ครอบครัวแก้ไขไม่ได้ครับ", "error");
+      setProfileForm({ name: profileData.name, icon: profileData.icon, theme: profileData.theme });
+      setModalMode('edit-profile');
+  };
+
+  const handleSaveProfile = async () => {
+      if (!profileForm.name) return showToast("กรุณาใส่ชื่อ", "error");
+      setLoading(true);
+      try {
+          const updatedProfiles = {
+              ...appProfiles,
+              [currentProfile]: { ...appProfiles[currentProfile], ...profileForm }
+          };
+          await setDoc(doc(db, "app_settings", "profiles_config"), updatedProfiles);
+          setModalMode(null);
+          showToast("อัปเดตโปรไฟล์เรียบร้อย!");
+      } catch (error) {
+          showToast("เกิดข้อผิดพลาด: " + error.message, "error");
+      } finally {
+          setLoading(false);
+      }
   };
 
   const handleOpenTransaction = (selectedType) => { setType(selectedType); setAmount(''); setCategory(''); setTransferToWalletId(''); setTags(''); setModalMode('add-transaction'); setIsFabOpen(false); };
@@ -375,7 +434,6 @@ export default function App() {
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
 
-  // Clear Wallet Transactions Logic
   const handleClearWalletTransactions = async (walletId) => {
     if (confirm("⚠️ แน่ใจไหม? ประวัติการใช้จ่ายทั้งหมดของกระเป๋านี้จะหายไป!")) {
       setLoading(true);
@@ -383,17 +441,11 @@ export default function App() {
         const q = query(collection(db, "transactions"), where("walletId", "==", walletId));
         const snapshot = await getDocs(q);
         const batch = writeBatch(db);
-        snapshot.docs.forEach((doc) => {
-          batch.delete(doc.ref);
-        });
+        snapshot.docs.forEach((doc) => { batch.delete(doc.ref); });
         await batch.commit();
         showToast("ล้างประวัติเรียบร้อย (เริ่มใหม่!)");
         setModalMode(null);
-      } catch (error) {
-        showToast("เกิดข้อผิดพลาด: " + error.message, "error");
-      } finally {
-        setLoading(false);
-      }
+      } catch (error) { showToast("เกิดข้อผิดพลาด: " + error.message, "error"); } finally { setLoading(false); }
     }
   };
 
@@ -421,7 +473,7 @@ export default function App() {
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
   const handleAssignBill = async (billId, targetProfile) => {
-    try { await updateDoc(doc(db, "bills", billId), { assignedTo: targetProfile, assignedBy: currentProfile }); showToast("โยนบิลเรียบร้อย!"); } catch (error) { showToast(error.message, "error"); }
+    try { await updateDoc(doc(db, "bills", billId), { assignedTo: targetProfile, assignedBy: currentProfile }); showToast(`โยนบิลไปให้ ${appProfiles[targetProfile].name} แล้ว!`); } catch (error) { showToast(error.message, "error"); }
   };
   const handleUnassignBill = async (billId) => {
     try { await updateDoc(doc(db, "bills", billId), { assignedTo: null, assignedBy: null }); showToast("ยกเลิกการโยน"); } catch (error) { showToast(error.message, "error"); }
@@ -447,14 +499,11 @@ export default function App() {
         title: wishlistForm.title, price: parseFloat(wishlistForm.price), link: wishlistForm.link, notes: wishlistForm.notes,
         requester: wishlistForm.id ? wishlistForm.requester : currentProfile, status: wishlistForm.status, createdAt: Date.now()
       };
-      
       if (wishlistForm.id) await updateDoc(doc(db, "wishlist", wishlistForm.id), wishlistData);
       else await addDoc(collection(db, "wishlist"), wishlistData);
-
       setWishlistForm({ id: null, title: '', price: '', link: '', notes: '', status: 'pending' }); setModalMode(null); showToast("บันทึกรายการแล้ว!");
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
-  
   const handleWishlistAction = async (id, status) => {
     try { await updateDoc(doc(db, "wishlist", id), { status }); showToast(status === 'approved' ? 'อนุมัติแล้ว!' : (status === 'pending' ? 'รีเซ็ตสถานะแล้ว' : 'ปัดตกแล้ว')); } catch (error) { showToast(error.message, "error"); }
   };
@@ -469,23 +518,15 @@ export default function App() {
       const eventData = { title: eventForm.title, date: eventForm.date, items: eventForm.items, createdAt: Date.now() };
       if(eventForm.id) await updateDoc(doc(db, "events", eventForm.id), eventData);
       else await addDoc(collection(db, "events"), eventData);
-      
       setEventForm({ id: null, title: '', date: '', items: [] }); setModalMode(null); showToast("บันทึกกิจกรรมแล้ว");
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
   };
-  
   const addEventItem = () => {
     if(!eventItemForm.name || !eventItemForm.cost) return;
     setEventForm(prev => ({ ...prev, items: [...prev.items, { name: eventItemForm.name, cost: parseFloat(eventItemForm.cost) }] }));
     setEventItemForm({ name: '', cost: '' });
   };
-  
-  const removeEventItem = (index) => {
-    const newItems = [...eventForm.items];
-    newItems.splice(index, 1);
-    setEventForm(prev => ({ ...prev, items: newItems }));
-  };
-
+  const removeEventItem = (index) => { const newItems = [...eventForm.items]; newItems.splice(index, 1); setEventForm(prev => ({ ...prev, items: newItems })); };
   const handleDeleteEvent = async (id) => { if(confirm("ลบกิจกรรม?")) await deleteDoc(doc(db, "events", id)); };
   const openEditEvent = (event) => { setEventForm({ id: event.id, title: event.title, date: event.date, items: event.items || [] }); setModalMode('manage-event'); };
 
@@ -513,24 +554,28 @@ export default function App() {
   const openCreateBudget = () => { setBudgetForm({ id: null, category: '', limit: '' }); setModalMode('manage-budget'); };
   const openEditBudget = (b) => { setBudgetForm({ id: b.id, category: b.category, limit: b.limit }); setModalMode('manage-budget'); };
   const openAddDebt = () => { setDebtForm({ person: '', amount: '', type: 'lent', note: '' }); setModalMode('add-debt'); };
-  const openPlanning = () => { setViewMode('planning'); };
   
   return (
-    <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${theme.bg} text-gray-900`}>
+    <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${themeColor.bg} text-gray-900`}>
       <div className="w-full max-w-md bg-white min-h-screen flex flex-col relative shadow-2xl sm:my-auto sm:border border-gray-200">
         
         <Particles key={animState.key} active={animState.active} type={animState.type} />
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
         {/* HEADER */}
-        <div className="bg-white/95 backdrop-blur-md pt-8 pb-3 px-5 z-40 sticky top-0 border-b border-gray-200 flex justify-between items-center shadow-sm">
-           <div className="flex items-center gap-2 cursor-pointer group" onClick={handleEditSpaceName}>
-             <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shadow-inner bg-gray-50 border border-gray-200`}>{theme.icon}</div>
-             <div><h1 className={`text-base font-bold leading-tight ${theme.text} flex items-center gap-1`}>{displaySpaceName} <Edit3 size={12} className="text-gray-400 group-hover:text-gray-600 transition-colors"/></h1></div>
+        <div className={`bg-white/95 backdrop-blur-md pt-8 pb-3 px-5 z-40 sticky top-0 border-b border-gray-200 flex justify-between items-center shadow-sm`}>
+           <div className="flex items-center gap-2 cursor-pointer group" onClick={handleEditProfile}>
+             <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shadow-inner bg-gray-50 border border-gray-200 ${themeColor.text}`}>{profileData.icon}</div>
+             <div>
+               <h1 className={`text-base font-bold leading-tight ${themeColor.text} flex items-center gap-1`}>
+                 {profileData.name} <Edit3 size={12} className="text-gray-400 group-hover:text-gray-600 transition-colors"/>
+               </h1>
+               {currentProfile === 'family' && <span className="text-[9px] text-gray-400 font-medium">Family Space</span>}
+             </div>
            </div>
            <div className="flex bg-gray-100 p-1 rounded-full">
-             {Object.keys(profiles).map((key) => (
-               <button key={key} onClick={() => setCurrentProfile(key)} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${currentProfile === key ? 'bg-white shadow-sm scale-105 border border-gray-200' : 'text-gray-400'}`}>{profiles[key].icon}</button>
+             {Object.keys(appProfiles).map((key) => (
+               <button key={key} onClick={() => setCurrentProfile(key)} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${currentProfile === key ? 'bg-white shadow-sm scale-105 border border-gray-200' : 'text-gray-400'}`}>{appProfiles[key].icon}</button>
              ))}
            </div>
         </div>
@@ -558,9 +603,9 @@ export default function App() {
               </div>
             )}
 
-            {/* Total Wealth & Daily Budget (Updated Logic) */}
+            {/* Total Wealth & Daily Budget */}
             <div className="px-5 pt-4 grid grid-cols-2 gap-3">
-              <div className={`p-4 rounded-2xl text-white shadow-lg bg-gradient-to-br ${currentProfile === 'hart' ? 'from-blue-800 to-blue-950' : currentProfile === 'jah' ? 'from-rose-700 to-rose-900' : 'from-slate-700 to-slate-900'}`}>
+              <div className={`p-4 rounded-2xl text-white shadow-lg bg-gradient-to-br ${themeColor.class}`}>
                 <p className="text-[9px] font-bold opacity-70 mb-1 uppercase tracking-wide">สินทรัพย์รวม</p>
                 <h2 className="text-2xl font-bold tracking-tight">฿{totalWealth.toLocaleString()}</h2>
               </div>
@@ -618,7 +663,7 @@ export default function App() {
             <div className="px-5 py-2">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Target size={12}/> เป้าหมาย (เดือนนี้)</span>
-                {currentProfile !== 'family' && <button onClick={openCreateBudget} className="text-[10px] text-blue-600 font-bold flex items-center gap-1 hover:text-blue-800">+ ตั้งเป้า</button>}
+                {currentProfile !== 'family' && <button onClick={openCreateBudget} className={`text-[10px] ${themeColor.text} font-bold flex items-center gap-1 hover:opacity-80`}>+ ตั้งเป้า</button>}
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x">
                 {profileBudgets.length === 0 ? (
@@ -660,7 +705,7 @@ export default function App() {
           </div>
         )}
 
-        {/* === PLANNING VIEW (New Center) === */}
+        {/* === PLANNING VIEW === */}
         {viewMode === 'planning' && (
           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50">
             {/* Wishlist Section */}
@@ -677,7 +722,7 @@ export default function App() {
                       <div className="flex-1">
                         <h3 className="font-bold text-gray-800 text-sm">{item.title}</h3>
                         <p className="text-pink-600 font-bold text-xs">฿{item.price.toLocaleString()}</p>
-                        <p className="text-[9px] text-gray-400 mt-1">ขอโดย: {getProfileName(item.requester)}</p>
+                        <p className="text-[9px] text-gray-400 mt-1">ขอโดย: {appProfiles[item.requester]?.name}</p>
                       </div>
                       <div className="flex gap-2 items-center">
                         {item.status === 'pending' ? (
@@ -762,12 +807,12 @@ export default function App() {
                       {!isAssigned ? (
                         <div className="flex gap-2">
                           <span className="text-[10px] text-gray-400 flex items-center mr-auto">โยนให้ใครจ่าย?</span>
-                          <button onClick={() => handleAssignBill(bill.id, 'hart')} className="flex-1 bg-blue-50 text-blue-700 text-[10px] font-bold py-1.5 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-1 border border-blue-200">👉 {getProfileName('hart')}</button>
-                          <button onClick={() => handleAssignBill(bill.id, 'jah')} className="flex-1 bg-pink-50 text-pink-700 text-[10px] font-bold py-1.5 rounded-lg hover:bg-pink-100 flex items-center justify-center gap-1 border border-pink-200">👉 {getProfileName('jah')}</button>
+                          <button onClick={() => handleAssignBill(bill.id, 'hart')} className="flex-1 bg-blue-50 text-blue-700 text-[10px] font-bold py-1.5 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-1 border border-blue-200">👉 {appProfiles['hart'].name}</button>
+                          <button onClick={() => handleAssignBill(bill.id, 'jah')} className="flex-1 bg-pink-50 text-pink-700 text-[10px] font-bold py-1.5 rounded-lg hover:bg-pink-100 flex items-center justify-center gap-1 border border-pink-200">👉 {appProfiles['jah'].name}</button>
                         </div>
                       ) : (
                         <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
-                          <div className="flex items-center gap-2"><div className="text-xl">{profiles[bill.assignedTo]?.icon}</div><div><p className="text-[10px] text-gray-600 font-bold">รอ {getProfileName(bill.assignedTo)} จ่าย</p>{bill.assignedBy && <p className="text-[9px] text-gray-400">({getProfileName(bill.assignedBy)} โยนมา)</p>}</div></div>
+                          <div className="flex items-center gap-2"><div className="text-xl">{appProfiles[bill.assignedTo]?.icon}</div><div><p className="text-[10px] text-gray-600 font-bold">รอ {appProfiles[bill.assignedTo].name} จ่าย</p>{bill.assignedBy && <p className="text-[9px] text-gray-400">({appProfiles[bill.assignedBy].name} โยนมา)</p>}</div></div>
                           <div className="flex gap-1"><button onClick={() => handleUnassignBill(bill.id)} className="p-1.5 rounded-lg bg-gray-200 text-gray-500 hover:bg-gray-300"><Undo2 size={14}/></button><button onClick={() => handlePayBillClick(bill)} className="bg-green-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow hover:bg-green-600 flex items-center gap-1"><CheckCircle2 size={12}/> จ่ายแล้ว</button></div>
                         </div>
                       )}
@@ -844,7 +889,7 @@ export default function App() {
 
         {/* BOTTOM NAV */}
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-gray-200 shadow-2xl rounded-full px-2 py-2 flex gap-4 z-50">
-          <button onClick={() => setViewMode('dashboard')} className={`p-2 rounded-full transition-all ${viewMode === 'dashboard' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'}`}><Home size={20} /></button>
+          <button onClick={() => setViewMode('dashboard')} className={`p-2 rounded-full transition-all ${viewMode === 'dashboard' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}><Home size={20} /></button>
           <button onClick={() => setViewMode('planning')} className={`p-2 rounded-full transition-all ${viewMode === 'planning' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400'}`}><CalendarHeart size={20} /></button>
           
           {currentProfile === 'family' ? (
@@ -865,7 +910,7 @@ export default function App() {
               <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">โอนเงิน</span><button onClick={() => handleOpenTransaction('transfer')} className="w-10 h-10 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"><ArrowRightLeft size={18} /></button></div>
               <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายจ่าย</span><button onClick={() => handleOpenTransaction('expense')} className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingDown size={18} /></button></div>
             </div>
-            <button onClick={() => setIsFabOpen(!isFabOpen)} className={`fixed bottom-24 right-6 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 z-50 ring-4 ring-white ${isFabOpen ? 'bg-gray-200 text-gray-600 rotate-45' : `${theme.primary} text-white hover:scale-105 active:scale-95`}`}><Plus size={28} /></button>
+            <button onClick={() => setIsFabOpen(!isFabOpen)} className={`fixed bottom-24 right-6 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 z-50 ring-4 ring-white ${isFabOpen ? 'bg-gray-200 text-gray-600 rotate-45' : `${themeColor.accent} text-white hover:scale-105 active:scale-95`}`}><Plus size={28} /></button>
           </>
         )}
 
@@ -879,26 +924,11 @@ export default function App() {
                 <button onClick={() => setType('transfer')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'transfer' ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-400'}`}><ArrowRightLeft size={14}/> โอนเงิน</button>
                 <button onClick={() => setType('income')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-green-50 text-green-600 shadow-sm' : 'text-gray-400'}`}><TrendingUp size={14}/> รายรับ</button>
               </div>
+              <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label><div className="relative flex gap-2"><div className="relative flex-1"><input type="number" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/><span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span></div><button onClick={() => setShowCalculator(true)} className="p-3 bg-gray-100 rounded-xl text-gray-600 hover:bg-gray-200"><Calculator size={24}/></button></div></div>
               
-              <div className="mb-6">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input type="number" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/>
-                    <span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span>
-                  </div>
-                  <button onClick={() => setShowCalculator(true)} className="p-3 bg-gray-100 rounded-xl text-gray-600 hover:bg-gray-200"><Calculator size={24}/></button>
-                </div>
-              </div>
-              
-              {showCalculator && (
-                <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                  <CalculatorPad onConfirm={(val) => { setAmount(val); setShowCalculator(false); }} onClose={() => setShowCalculator(false)} />
-                </div>
-              )}
+              {showCalculator && (<div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><CalculatorPad onConfirm={(val) => { setAmount(val); setShowCalculator(false); }} onClose={() => setShowCalculator(false)} /></div>)}
               
               <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">แฮชแท็ก (เว้นวรรคเพื่อแยก)</label><input type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="#เที่ยว #กาแฟ" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400"/></div>
-
               {type === 'transfer' ? (
                 <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">ไปยังกระเป๋า</label><div className="space-y-2">{wallets.filter(w => w.id !== activeWalletId).map(w => (<button key={w.id} onClick={() => setTransferToWalletId(w.id)} className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all bg-white ${transferToWalletId === w.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`}><div className="flex items-center gap-3"><span className="text-xl" style={{color: w.color}}>{w.icon}</span><span className="font-semibold text-sm">{w.name}</span></div>{transferToWalletId === w.id && <div className="bg-blue-100 p-1 rounded-full text-blue-600"><ArrowRight size={14}/></div>}</button>))}</div></div>
               ) : (
@@ -946,8 +976,8 @@ export default function App() {
               <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold text-gray-800">จ่ายด้วยกระเป๋าไหน?</h3><button onClick={() => { setModalMode(null); setPayBillData(null); }} className="p-1 rounded-full hover:bg-gray-100"><X size={20}/></button></div>
               <div className="mb-4 p-3 bg-purple-50 rounded-xl border border-purple-100"><p className="text-xs text-gray-500 font-bold uppercase">ยอดชำระ</p><div className="flex justify-between items-end"><p className="text-xl font-bold text-purple-700">{payBillData.title}</p><p className="text-xl font-bold text-purple-700">฿{payBillData.amount.toLocaleString()}</p></div></div>
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">กระเป๋าของ {getProfileName(payBillData.assignedTo)}</p>
-                {wallets.filter(w => w.owner === payBillData.assignedTo).length === 0 && <p className="text-xs text-red-500">ไม่พบกระเป๋าเงินของ {getProfileName(payBillData.assignedTo)}</p>}
+                <p className="text-[10px] font-bold text-gray-400 uppercase">กระเป๋าของ {appProfiles[payBillData.assignedTo]?.name}</p>
+                {wallets.filter(w => w.owner === payBillData.assignedTo).length === 0 && <p className="text-xs text-red-500">ไม่พบกระเป๋าเงิน</p>}
                 {wallets.filter(w => w.owner === payBillData.assignedTo).map(wallet => (
                   <button key={wallet.id} onClick={() => confirmPayBill(wallet.id)} className="w-full p-3 rounded-xl border border-gray-200 flex items-center justify-between hover:border-blue-500 hover:bg-blue-50 transition-all">
                     <div className="flex items-center gap-3"><span className="text-xl" style={{color: wallet.color}}>{wallet.icon}</span><div className="text-left"><p className="font-bold text-sm text-gray-800">{wallet.name}</p><p className="text-xs text-gray-500">คงเหลือ: {calculateBalance(wallet).toLocaleString()}</p></div></div><ArrowRight size={16} className="text-gray-400"/>
@@ -973,7 +1003,7 @@ export default function App() {
                 <div className="grid grid-cols-4 gap-2">
                   {bankPresets.map(bank => (
                     <button key={bank.name} onClick={() => setWalletForm({ ...walletForm, name: bank.name, color: bank.color, icon: bank.icon })} className="flex flex-col items-center justify-center p-2 rounded-xl border border-gray-100 bg-white shadow-sm hover:scale-105 transition-transform" style={{ borderTop: `4px solid ${bank.color}` }}>
-                      <span className="font-bold text-xs">{bank.name}</span>
+                      <span className="font-bold text-xs" style={{color: bank.textColor || 'text-gray-800'}}>{bank.name}</span>
                     </button>
                   ))}
                 </div>
@@ -990,7 +1020,7 @@ export default function App() {
             
             {/* Action Buttons */}
             <div className="p-4 border-t border-gray-200 bg-white space-y-3">
-               <button onClick={handleSaveWallet} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกกระเป๋า'}</button>
+               <button onClick={handleSaveWallet} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกกระเป๋า'}</button>
                {walletForm.id && (
                  <button onClick={() => handleClearWalletTransactions(walletForm.id)} className="w-full bg-red-50 text-red-600 h-12 rounded-xl font-bold text-sm hover:bg-red-100 transition-all flex items-center justify-center gap-2"><Trash2 size={16}/> ล้างประวัติธุรกรรม</button>
                )}
@@ -1003,10 +1033,10 @@ export default function App() {
           <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200">
              <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180"/></button><h2 className="text-base font-bold text-gray-800">{budgetForm.id ? 'แก้ไขงบ' : 'ตั้งเป้าใหม่'}</h2>{budgetForm.id ? <button onClick={() => handleDeleteBudget(budgetForm.id)} className="text-red-500"><Trash2 size={20}/></button> : <div className="w-5"></div>}</div>
              <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-                <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-3 block">หมวดหมู่</label><div className="grid grid-cols-4 gap-3">{expenseCategories.map(cat => (<button key={cat.id} onClick={() => setBudgetForm({...budgetForm, category: cat.name})} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${budgetForm.category === cat.name ? `bg-${theme.theme}-600 text-white shadow-lg scale-105 border-${theme.theme}-600` : 'border-gray-200 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div></div>
+                <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-3 block">หมวดหมู่</label><div className="grid grid-cols-4 gap-3">{expenseCategories.map(cat => (<button key={cat.id} onClick={() => setBudgetForm({...budgetForm, category: cat.name})} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${budgetForm.category === cat.name ? `bg-${themeColor.theme}-600 text-white shadow-lg scale-105 border-${themeColor.theme}-600` : 'border-gray-200 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div></div>
                 <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">งบ (บาท)</label><input type="number" autoFocus value={budgetForm.limit} onChange={e => setBudgetForm({...budgetForm, limit: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-xl font-bold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น 5000"/></div>
              </div>
-             <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveBudget} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? '...' : 'บันทึก'}</button></div>
+             <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveBudget} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? '...' : 'บันทึก'}</button></div>
           </div>
         )}
         
@@ -1059,6 +1089,19 @@ export default function App() {
               </div>
             </div>
             <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveEvent} disabled={loading} className="w-full bg-blue-600 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">{loading ? '...' : 'บันทึก'}</button></div>
+          </div>
+        )}
+
+        {/* MODAL: MANAGE PROFILE */}
+        {modalMode === 'edit-profile' && (
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200">
+             <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180"/></button><h2 className="text-base font-bold text-gray-800">แก้ไขโปรไฟล์</h2><div className="w-10"></div></div>
+             <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+                <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อเล่น</label><input type="text" value={profileForm.name} onChange={e => setProfileForm({...profileForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="ชื่อของคุณ"/></div>
+                <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ไอคอนประจำตัว</label><div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{iconsList.map(icon => (<button key={icon} onClick={() => setProfileForm({...profileForm, icon})} className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 transition-all flex-shrink-0 bg-white ${profileForm.icon === icon ? `border-${themeColor.theme}-500 bg-${themeColor.theme}-50` : 'border-gray-200'}`}>{icon}</button>))}</div></div>
+                <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ธีมสีหลัก</label><div className="grid grid-cols-5 gap-3">{colorsList.map(c => (<button key={c.id} onClick={() => setProfileForm({...profileForm, theme: c.id})} className={`h-10 rounded-xl bg-gradient-to-br ${c.class} transition-all ${profileForm.theme === c.id ? 'ring-4 ring-offset-2 ring-gray-300 scale-105' : 'opacity-70 grayscale'}`}/>))}</div></div>
+             </div>
+             <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveProfile} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? '...' : 'บันทึก'}</button></div>
           </div>
         )}
 
