@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3 } from 'lucide-react';
+import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2 } from 'lucide-react';
 
 // --- Firebase Config & Init ---
 import { initializeApp } from "firebase/app";
@@ -53,20 +53,19 @@ const profiles = {
   family: { name: 'Family', theme: 'slate', bg: 'bg-gray-50', primary: 'bg-slate-800', text: 'text-slate-900', icon: '🏠' }
 };
 
-// --- Particles Component (Advanced Animation) ---
+// --- Particles Component ---
 const Particles = ({ active, type }) => {
   if (!active) return null;
-  const particles = Array.from({ length: 15 });
+  const particles = Array.from({ length: 20 });
   
-  // Animation Settings based on Type
-  let colorClass = 'from-yellow-400 to-red-500'; // Default Expense (Fire)
+  let colorClass = 'from-red-500 to-orange-500';
   let animName = 'animate-fly-up';
   
   if (type === 'income') {
-    colorClass = 'from-yellow-300 to-green-400'; // Income (Gold/Green)
+    colorClass = 'from-green-400 to-yellow-400';
     animName = 'animate-fly-down';
   } else if (type === 'transfer') {
-    colorClass = 'from-blue-300 to-cyan-500'; // Transfer (Digital Blue)
+    colorClass = 'from-blue-400 to-cyan-400';
     animName = 'animate-fly-across';
   }
 
@@ -75,15 +74,15 @@ const Particles = ({ active, type }) => {
       {particles.map((_, i) => (
         <div
           key={i}
-          className={`absolute w-3 h-3 rounded-full bg-gradient-to-r shadow-lg ${colorClass} ${animName}`}
+          className={`absolute w-4 h-4 rounded-full bg-gradient-to-r shadow-md ${colorClass} ${animName}`}
           style={{
             left: '50%',
             top: '50%',
-            '--tx': `${(Math.random() - 0.5) * 300}px`,
-            '--ty': type === 'income' ? `${window.innerHeight * 0.4}px` : `-${window.innerHeight * 0.4}px`, // Down or Up
+            '--tx': `${(Math.random() - 0.5) * 350}px`,
+            '--ty': type === 'income' ? `${window.innerHeight * 0.4}px` : `-${window.innerHeight * 0.4}px`, 
             '--tr': type === 'transfer' ? `${(Math.random() > 0.5 ? 1 : -1) * window.innerWidth}px` : '0px',
-            '--d': `${Math.random() * 0.5}s`,
-            '--s': `${0.5 + Math.random() * 1}` // Scale
+            '--d': `${Math.random() * 0.3}s`,
+            '--s': `${0.8 + Math.random() * 1.2}`
           }}
         />
       ))}
@@ -99,7 +98,7 @@ const Toast = ({ message, type, onClose }) => {
   }, [onClose]);
 
   return (
-    <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-3 px-4 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 whitespace-nowrap ${type === 'error' ? 'bg-red-500 text-white' : 'bg-gray-900 text-white'}`}>
+    <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 whitespace-nowrap ${type === 'error' ? 'bg-red-500 text-white' : 'bg-gray-900 text-white'}`}>
       {type === 'success' ? <CheckCircle2 size={18} className="text-green-400"/> : <AlertCircle size={18} className="text-red-200"/>}
       <span className="text-sm font-medium font-sans">{message}</span>
     </div>
@@ -113,15 +112,13 @@ export default function App() {
   const [activeWalletId, setActiveWalletId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentProfile, setCurrentProfile] = useState('hart');
-  const [customSpaceNames, setCustomSpaceNames] = useState({}); // Store custom names
+  const [customSpaceNames, setCustomSpaceNames] = useState({});
   const [viewMode, setViewMode] = useState('dashboard');
   const [isFabOpen, setIsFabOpen] = useState(false);
   
-  // Animation State
-  const [animState, setAnimState] = useState({ active: false, type: 'expense' });
+  const [animState, setAnimState] = useState({ active: false, type: 'expense', key: 0 });
   const [toast, setToast] = useState(null);
 
-  // Form States
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [type, setType] = useState('expense');
@@ -132,33 +129,20 @@ export default function App() {
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // Styles Injection (Enhanced Animations)
+  // Styles Injection
   useEffect(() => {
     const style = document.createElement('style');
     style.innerHTML = `
-      @keyframes fly-up { 
-        0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 
-        100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; } 
-      }
-      @keyframes fly-down { 
-        0% { transform: translate(-50%, -100px) scale(0); opacity: 0; } 
-        50% { opacity: 1; }
-        100% { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 0; } 
-      }
-      @keyframes fly-across { 
-        0% { transform: translate(0, 0) scale(1); opacity: 1; } 
-        100% { transform: translate(var(--tr), var(--tx)) scale(0); opacity: 0; } 
-      }
+      @keyframes fly-up { 0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; } }
+      @keyframes fly-down { 0% { transform: translate(-50%, -150px) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(1.5); opacity: 0; } }
+      @keyframes fly-across { 0% { transform: translate(0, 0) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(var(--tr), var(--tx)) scale(0); opacity: 0; } }
       .animate-fly-up { animation: fly-up 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; animation-delay: var(--d); }
-      .animate-fly-down { animation: fly-down 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; animation-delay: var(--d); }
+      .animate-fly-down { animation: fly-down 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; animation-delay: var(--d); }
       .animate-fly-across { animation: fly-across 0.8s ease-out forwards; animation-delay: var(--d); }
     `;
     document.head.appendChild(style);
-    
-    // Load Custom Names
     const savedNames = localStorage.getItem('customSpaceNames');
     if (savedNames) setCustomSpaceNames(JSON.parse(savedNames));
-
     return () => document.head.removeChild(style);
   }, []);
 
@@ -168,7 +152,7 @@ export default function App() {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setWallets(data);
       if (data.length === 0 && !snapshot.metadata.fromCache) {
-        addDoc(collection(db, "wallets"), { name: "กระเป๋าหลัก", initialBalance: 0, icon: '💵', color: 'blue', owner: 'hart', createdAt: Date.now() });
+        addDoc(collection(db, "wallets"), { name: "Hart Wallet", initialBalance: 0, icon: '💵', color: 'blue', owner: 'hart', createdAt: Date.now() });
       }
     });
     const unsubT = onSnapshot(query(collection(db, "transactions"), orderBy("timestamp", "desc")), (snapshot) => {
@@ -180,7 +164,6 @@ export default function App() {
     return () => { unsubW(); unsubT(); unsubB(); };
   }, []);
 
-  // Logic Filtering
   const visibleWallets = wallets.filter(w => currentProfile === 'family' ? true : (w.owner === currentProfile || !w.owner));
   
   useEffect(() => {
@@ -201,7 +184,6 @@ export default function App() {
     return (parseFloat(wallet.initialBalance) || 0) + totalTx;
   };
 
-  // --- Budget Logic ---
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const profileBudgets = budgets.filter(b => currentProfile === 'family' ? true : (b.owner === currentProfile));
@@ -210,21 +192,14 @@ export default function App() {
     return transactions
       .filter(t => {
         const txDate = new Date(t.timestamp);
-        return t.category === catName && 
-               t.type === 'expense' && 
-               !t.isTransfer &&
-               txDate.getMonth() === currentMonth &&
-               txDate.getFullYear() === currentYear &&
-               visibleWallets.some(w => w.id === t.walletId);
+        return t.category === catName && t.type === 'expense' && !t.isTransfer && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear && visibleWallets.some(w => w.id === t.walletId);
       })
       .reduce((sum, t) => sum + t.amount, 0);
   };
 
-  // Theme & Naming
   const theme = profiles[currentProfile];
   const displaySpaceName = customSpaceNames[currentProfile] || `${theme.name}'s Space`;
 
-  // --- Actions ---
   const handleEditSpaceName = () => {
     const newName = prompt("ตั้งชื่อ Space ของคุณ:", displaySpaceName);
     if (newName && newName.trim()) {
@@ -240,8 +215,8 @@ export default function App() {
   };
 
   const triggerAnimation = (animType) => {
-    setAnimState({ active: true, type: animType });
-    setTimeout(() => setAnimState({ active: false, type: animType }), 1500);
+    setAnimState({ active: true, type: animType, key: Date.now() });
+    setTimeout(() => setAnimState(prev => ({ ...prev, active: false })), 1500);
   };
 
   const handleSaveTransaction = async () => {
@@ -260,7 +235,7 @@ export default function App() {
       } else {
         if (!category) { setLoading(false); return showToast("กรุณาเลือกหมวดหมู่", "error"); }
         await addDoc(collection(db, "transactions"), { amount: parseFloat(amount), category, type, isTransfer: false, walletId: activeWalletId, timestamp, dateDisplay });
-        triggerAnimation(type); // 'income' or 'expense'
+        triggerAnimation(type);
       }
       setAmount(''); setCategory(''); setTransferToWalletId(''); setViewMode('dashboard');
       showToast("บันทึกสำเร็จ!");
@@ -309,10 +284,10 @@ export default function App() {
     <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${theme.bg} text-gray-900`}>
       <div className="w-full max-w-md bg-white min-h-screen flex flex-col relative shadow-2xl sm:my-auto sm:border border-gray-200">
         
-        <Particles active={animState.active} type={animState.type} />
+        <Particles key={animState.key} active={animState.active} type={animState.type} />
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-        {/* ================= HEADER ================= */}
+        {/* HEADER */}
         <div className="bg-white/95 backdrop-blur-md pt-8 pb-3 px-5 z-40 sticky top-0 border-b border-gray-100 flex justify-between items-center shadow-sm">
            <div className="flex items-center gap-2 cursor-pointer group" onClick={handleEditSpaceName}>
              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shadow-inner bg-gray-50 border border-gray-100`}>
@@ -332,10 +307,10 @@ export default function App() {
            </div>
         </div>
 
-        {/* ================= CONTENT ================= */}
+        {/* CONTENT */}
         <div className={`flex-1 flex flex-col transition-all duration-300 pb-24 ${viewMode === 'dashboard' ? 'opacity-100' : 'opacity-0 hidden'}`}>
           
-          {/* 1. Wallets */}
+          {/* Wallets */}
           <div className="pt-4 pb-2">
             <div className="px-5 mb-2 flex justify-between items-center">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">กระเป๋าเงิน</span>
@@ -369,7 +344,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 2. Budgets */}
+          {/* Budgets */}
           <div className="px-5 py-2">
             <div className="flex justify-between items-center mb-2">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><Target size={12}/> เป้าหมายงบ (เดือนนี้)</span>
@@ -407,7 +382,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 3. Transaction List */}
+          {/* Transactions */}
           <div className="px-5 pt-2">
             <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1"><Activity size={12}/> รายการล่าสุด</h3>
             {currentWalletTransactions.length === 0 ? (
@@ -438,82 +413,85 @@ export default function App() {
           </div>
         </div>
 
-        {/* ================= FAB ================= */}
+        {/* FAB (Fixed Overlap Issue) */}
         {currentProfile !== 'family' && viewMode === 'dashboard' && (
           <>
-            {isFabOpen && <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] animate-in fade-in" onClick={() => setIsFabOpen(false)}></div>}
-            <div className={`fixed bottom-8 right-6 flex flex-col gap-3 z-50 items-end transition-all duration-300 ${isFabOpen ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-500">รายรับ</span><button onClick={() => handleOpenTransaction('income')} className="w-10 h-10 bg-green-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingUp size={18} /></button></div>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-500">โอนเงิน</span><button onClick={() => handleOpenTransaction('transfer')} className="w-10 h-10 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"><ArrowRightLeft size={18} /></button></div>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-500">รายจ่าย</span><button onClick={() => handleOpenTransaction('expense')} className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingDown size={18} /></button></div>
+            {isFabOpen && <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] animate-in fade-in" onClick={() => setIsFabOpen(false)}></div>}
+            <div className={`fixed bottom-28 right-6 flex flex-col gap-3 z-50 items-end transition-all duration-300 ${isFabOpen ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
+              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายรับ</span><button onClick={() => handleOpenTransaction('income')} className="w-10 h-10 bg-green-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingUp size={18} /></button></div>
+              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">โอนเงิน</span><button onClick={() => handleOpenTransaction('transfer')} className="w-10 h-10 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"><ArrowRightLeft size={18} /></button></div>
+              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายจ่าย</span><button onClick={() => handleOpenTransaction('expense')} className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingDown size={18} /></button></div>
             </div>
             <button onClick={() => setIsFabOpen(!isFabOpen)} className={`fixed bottom-8 right-6 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 z-50 ring-4 ring-white ${isFabOpen ? 'bg-gray-200 text-gray-600 rotate-45' : `${theme.primary} text-white hover:scale-105 active:scale-95`}`}><Plus size={28} /></button>
           </>
         )}
 
-        {/* ================= MODALS ================= */}
+        {/* MODAL: ADD TRANSACTION (Fixed Background) */}
         {viewMode === 'add-transaction' && (
-          <div className="fixed inset-0 bg-white z-[60] flex flex-col animate-in slide-in-from-bottom duration-200">
-            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white">
               <button onClick={() => setViewMode('dashboard')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button>
               <h2 className="text-base font-bold text-gray-800">เพิ่มรายการใหม่</h2>
               <div className="w-10"></div>
             </div>
             <div className="flex-1 p-6 overflow-y-auto">
-              <div className="bg-gray-100 p-1 rounded-xl flex font-bold text-xs mb-6">
-                <button onClick={() => setType('expense')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400'}`}><TrendingDown size={14}/> รายจ่าย</button>
-                <button onClick={() => setType('transfer')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'transfer' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}><ArrowRightLeft size={14}/> โอนเงิน</button>
-                <button onClick={() => setType('income')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400'}`}><TrendingUp size={14}/> รายรับ</button>
+              {/* Content here remains same, but bg is gray-50 now */}
+              <div className="bg-white p-1 rounded-xl flex font-bold text-xs mb-6 shadow-sm border border-gray-100">
+                <button onClick={() => setType('expense')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'expense' ? 'bg-red-50 text-red-600 shadow-sm' : 'text-gray-400'}`}><TrendingDown size={14}/> รายจ่าย</button>
+                <button onClick={() => setType('transfer')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'transfer' ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-400'}`}><ArrowRightLeft size={14}/> โอนเงิน</button>
+                <button onClick={() => setType('income')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${type === 'income' ? 'bg-green-50 text-green-600 shadow-sm' : 'text-gray-400'}`}><TrendingUp size={14}/> รายรับ</button>
               </div>
               <div className="mb-6">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label>
-                <div className="relative"><input type="number" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${type === 'expense' ? 'text-red-600 border-red-100 focus:border-red-500' : type === 'transfer' ? 'text-blue-600 border-blue-100 focus:border-blue-500' : 'text-green-600 border-green-100 focus:border-green-500'}`}/><span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span></div>
+                <div className="relative"><input type="number" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/><span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span></div>
               </div>
               {type === 'transfer' ? (
                 <div>
                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">ไปยังกระเป๋า</label>
-                   <div className="space-y-2">{wallets.filter(w => w.id !== activeWalletId).map(w => (<button key={w.id} onClick={() => setTransferToWalletId(w.id)} className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all ${transferToWalletId === w.id ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white border-gray-200 text-gray-600'}`}><div className="flex items-center gap-3"><span className="text-xl">{w.icon}</span><span className="font-semibold text-sm">{w.name}</span></div>{transferToWalletId === w.id && <div className="bg-white/20 p-1 rounded-full"><ArrowRight size={14}/></div>}</button>))}</div>
+                   <div className="space-y-2">{wallets.filter(w => w.id !== activeWalletId).map(w => (<button key={w.id} onClick={() => setTransferToWalletId(w.id)} className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all bg-white ${transferToWalletId === w.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`}><div className="flex items-center gap-3"><span className="text-xl">{w.icon}</span><span className="font-semibold text-sm">{w.name}</span></div>{transferToWalletId === w.id && <div className="bg-blue-100 p-1 rounded-full text-blue-600"><ArrowRight size={14}/></div>}</button>))}</div>
                 </div>
               ) : (
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">เลือกหมวดหมู่</label>
-                  <div className="grid grid-cols-4 gap-3">{(type === 'expense' ? expenseCategories : incomeCategories).map(cat => (<button key={cat.id} onClick={() => setCategory(cat.name)} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${category === cat.name ? 'bg-gray-800 text-white border-gray-800 shadow-lg scale-105' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div>
+                  <div className="grid grid-cols-4 gap-3">{(type === 'expense' ? expenseCategories : incomeCategories).map(cat => (<button key={cat.id} onClick={() => setCategory(cat.name)} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div>
                 </div>
               )}
             </div>
-            <div className="p-4 border-t border-gray-100 bg-gray-50">
+            <div className="p-4 border-t border-gray-200 bg-white">
               <button onClick={handleSaveTransaction} disabled={loading} className={`w-full h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-white ${type === 'expense' ? 'bg-red-600 shadow-red-200' : type === 'transfer' ? 'bg-blue-600 shadow-blue-200' : 'bg-green-600 shadow-green-200'}`}>{loading ? <Loader2 className="animate-spin"/> : (type === 'transfer' ? 'โอนเงิน' : 'บันทึก')}</button>
             </div>
           </div>
         )}
 
+        {/* MODAL: MANAGE WALLET */}
         {viewMode === 'manage-wallet' && (
-          <div className="fixed inset-0 bg-white z-[60] flex flex-col animate-in slide-in-from-right duration-200">
-             <div className="flex justify-between items-center p-4 border-b border-gray-100"><button onClick={() => setViewMode('dashboard')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180"/></button><h2 className="text-base font-bold text-gray-800">{walletForm.id ? 'แก้ไขกระเป๋า' : 'สร้างกระเป๋าใหม่'}</h2><div className="w-10"></div></div>
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200">
+             <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setViewMode('dashboard')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180"/></button><h2 className="text-base font-bold text-gray-800">{walletForm.id ? 'แก้ไขกระเป๋า' : 'สร้างกระเป๋าใหม่'}</h2><div className="w-10"></div></div>
             <div className="flex-1 p-6 space-y-5 overflow-y-auto">
-              <div className="bg-gray-50 p-3 rounded-xl flex items-center gap-3 border border-gray-100"><div className="p-2 bg-white rounded-full shadow-sm">{profiles[walletForm.owner]?.icon}</div><div><p className="text-[10px] text-gray-400 font-bold uppercase">เจ้าของ</p><p className="font-semibold text-gray-800 text-sm">{profiles[walletForm.owner]?.name}</p></div></div>
-              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ไอคอน</label><div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{iconsList.map(icon => (<button key={icon} onClick={() => setWalletForm({...walletForm, icon})} className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 transition-all flex-shrink-0 ${walletForm.icon === icon ? `border-${theme.theme}-500 bg-${theme.theme}-50` : 'border-gray-100'}`}>{icon}</button>))}</div></div>
-              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อกระเป๋า</label><input type="text" value={walletForm.name} onChange={e => setWalletForm({...walletForm, name: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น เงินเดือน"/></div>
-              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">เงินตั้งต้น</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00"/></div>
+              <div className="bg-white p-3 rounded-xl flex items-center gap-3 border border-gray-200 shadow-sm"><div className="p-2 bg-gray-50 rounded-full">{profiles[walletForm.owner]?.icon}</div><div><p className="text-[10px] text-gray-400 font-bold uppercase">เจ้าของ</p><p className="font-semibold text-gray-800 text-sm">{profiles[walletForm.owner]?.name}</p></div></div>
+              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ไอคอน</label><div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{iconsList.map(icon => (<button key={icon} onClick={() => setWalletForm({...walletForm, icon})} className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 transition-all flex-shrink-0 bg-white ${walletForm.icon === icon ? `border-${theme.theme}-500 bg-${theme.theme}-50` : 'border-gray-200'}`}>{icon}</button>))}</div></div>
+              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อกระเป๋า</label><input type="text" value={walletForm.name} onChange={e => setWalletForm({...walletForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น เงินเดือน"/></div>
+              <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">เงินตั้งต้น</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00"/></div>
               <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">สีธีม</label><div className="grid grid-cols-7 gap-2">{colorsList.map(c => (<button key={c.id} onClick={() => setWalletForm({...walletForm, color: c.id})} className={`h-8 rounded-lg bg-gradient-to-br ${c.class} transition-all ${walletForm.color === c.id ? 'ring-2 ring-offset-2 ring-gray-800 scale-105' : 'opacity-70 grayscale'}`}/>))}</div></div>
             </div>
-            <div className="p-4 border-t border-gray-100"><button onClick={handleSaveWallet} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกกระเป๋า'}</button></div>
+            <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveWallet} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกกระเป๋า'}</button></div>
           </div>
         )}
 
+        {/* MODAL: MANAGE BUDGET */}
         {viewMode === 'manage-budget' && (
-          <div className="fixed inset-0 bg-white z-[60] flex flex-col animate-in slide-in-from-right duration-200">
-             <div className="flex justify-between items-center p-4 border-b border-gray-100">
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200">
+             <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white">
                <button onClick={() => setViewMode('dashboard')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180"/></button>
                <h2 className="text-base font-bold text-gray-800">{budgetForm.id ? 'แก้ไขงบ' : 'ตั้งเป้าใหม่'}</h2>
                {budgetForm.id ? <button onClick={() => handleDeleteBudget(budgetForm.id)} className="text-red-500"><Trash2 size={20}/></button> : <div className="w-5"></div>}
              </div>
-             <div className="flex-1 p-6 space-y-6">
+             <div className="flex-1 p-6 space-y-6 overflow-y-auto">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-3 block">เลือกหมวดหมู่</label>
                   <div className="grid grid-cols-4 gap-3">
                     {expenseCategories.map(cat => (
-                      <button key={cat.id} onClick={() => setBudgetForm({...budgetForm, category: cat.name})} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${budgetForm.category === cat.name ? `bg-${theme.theme}-600 text-white shadow-lg scale-105 border-${theme.theme}-600` : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                      <button key={cat.id} onClick={() => setBudgetForm({...budgetForm, category: cat.name})} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${budgetForm.category === cat.name ? `bg-${theme.theme}-600 text-white shadow-lg scale-105 border-${theme.theme}-600` : 'border-gray-200 hover:border-gray-300'}`}>
                         <span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span>
                       </button>
                     ))}
@@ -521,10 +499,10 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">งบต่อเดือน (บาท)</label>
-                  <input type="number" autoFocus value={budgetForm.limit} onChange={e => setBudgetForm({...budgetForm, limit: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-xl font-bold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น 5000"/>
+                  <input type="number" autoFocus value={budgetForm.limit} onChange={e => setBudgetForm({...budgetForm, limit: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-xl font-bold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น 5000"/>
                 </div>
              </div>
-             <div className="p-4 border-t border-gray-100">
+             <div className="p-4 border-t border-gray-200 bg-white">
                <button onClick={handleSaveBudget} disabled={loading} className={`w-full ${theme.primary} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกเป้าหมาย'}</button>
              </div>
           </div>
