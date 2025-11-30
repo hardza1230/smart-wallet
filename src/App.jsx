@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake, UserCog, Calendar, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List } from 'lucide-react';
+import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake, UserCog, Calendar, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List, GripVertical, Coffee, ShoppingBag, CreditCard } from 'lucide-react';
 
 // --- Firebase Config & Init ---
 import { initializeApp } from "firebase/app";
@@ -44,6 +44,16 @@ const bankPresets = [
   { name: 'GSB', color: '#eb198d', icon: 'GSB' },
   { name: 'TrueMoney', color: '#ff5c00', icon: 'TM' },
   { name: 'Cash', color: '#64748b', icon: '💵' },
+  { name: 'Credit', color: '#171717', icon: '💳' },
+];
+
+const defaultQuickMenus = [
+  { name: 'ข้าวเช้า', amount: 50, icon: '🍳', category: 'อาหาร' },
+  { name: 'กาแฟ', amount: 60, icon: '☕', category: 'อาหาร' },
+  { name: 'วิน/รถเมล์', amount: 30, icon: '🚌', category: 'เดินทาง' },
+  { name: 'ข้าวเที่ยง', amount: 60, icon: '🍛', category: 'อาหาร' },
+  { name: 'น้ำเปล่า', amount: 10, icon: '💧', category: 'อาหาร' },
+  { name: '7-11', amount: 100, icon: '🏪', category: 'ช้อปปิ้ง' }
 ];
 
 const colorsList = [
@@ -57,6 +67,7 @@ const colorsList = [
   { id: 'cyan', class: 'from-cyan-600 to-cyan-800', hex: '#0891b2', bg: 'bg-cyan-50', text: 'text-cyan-900', accent: 'bg-cyan-600' },
   { id: 'amber', class: 'from-amber-500 to-amber-700', hex: '#d97706', bg: 'bg-amber-50', text: 'text-amber-900', accent: 'bg-amber-500' },
   { id: 'indigo', class: 'from-indigo-600 to-indigo-800', hex: '#4f46e5', bg: 'bg-indigo-50', text: 'text-indigo-900', accent: 'bg-indigo-600' },
+  { id: 'black', class: 'from-gray-800 to-gray-950', hex: '#0f172a', bg: 'bg-gray-100', text: 'text-gray-900', accent: 'bg-gray-900' },
 ];
 
 const expenseCategories = [
@@ -81,6 +92,7 @@ const incomeCategories = [
   { id: 'sell', name: 'ขายของ', icon: '📈' },
   { id: 'gift', name: 'ได้เงิน', icon: '🧧' },
   { id: 'invest', name: 'ลงทุน', icon: '💎' },
+  { id: 'refund', name: 'คืนเงิน', icon: '↩️' },
 ];
 
 const defaultProfiles = {
@@ -144,24 +156,14 @@ const NetWorthLineChart = ({ transactions, wallets }) => {
   useEffect(() => {
     if (!wallets.length) return;
 
-    // 1. Calculate Monthly End Balances
-    const today = new Date();
-    const history = [];
-    
     // Initial Wealth (Sum of all wallet initial balances)
-    const initialWealth = wallets.reduce((sum, w) => sum + (parseFloat(w.initialBalance) || 0), 0);
-
-    // Group transactions by YYYY-MM
-    const txByMonth = {};
-    transactions.forEach(t => {
-      const d = new Date(t.timestamp);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (!txByMonth[key]) txByMonth[key] = 0;
-      if (t.type === 'income') txByMonth[key] += t.amount;
-      if (t.type === 'expense') txByMonth[key] -= t.amount;
-    });
-
-    // Create 6 months history points
+    // Credit card 'initialBalance' usually represents debt or limit? 
+    // Convention: Wallet Balance is what you HAVE. 
+    // Credit Card: Balance is usually negative (debt).
+    
+    const today = new Date();
+    
+    // Generate last 6 months labels
     const months = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
@@ -173,17 +175,25 @@ const NetWorthLineChart = ({ transactions, wallets }) => {
     }
 
     const chartData = months.map(m => {
-        // Calculate cumulative balance up to END of this month
         const endOfThisMonth = new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0, 23, 59, 59).getTime();
         
-        const balanceAtMonth = wallets.reduce((sum, w) => sum + (parseFloat(w.initialBalance) || 0), 0) + 
-            transactions.filter(t => t.timestamp <= endOfThisMonth).reduce((acc, t) => {
-                if (t.type === 'income') return acc + t.amount;
-                if (t.type === 'expense') return acc - t.amount;
-                return acc;
-            }, 0);
+        // Calculate balance for each wallet at end of month
+        const totalWealthAtMonth = wallets.reduce((acc, wallet) => {
+            let balance = parseFloat(wallet.initialBalance) || 0;
             
-        return { label: m.label, value: balanceAtMonth };
+            // Apply transactions up to this date
+            const relevantTx = transactions.filter(t => t.walletId === wallet.id && t.timestamp <= endOfThisMonth);
+            
+            const change = relevantTx.reduce((sum, t) => {
+                if (t.type === 'income') return sum + t.amount;
+                if (t.type === 'expense') return sum - t.amount;
+                return sum;
+            }, 0);
+
+            return acc + balance + change;
+        }, 0);
+            
+        return { label: m.label, value: totalWealthAtMonth };
     });
 
     setDataPoints(chartData);
@@ -196,10 +206,10 @@ const NetWorthLineChart = ({ transactions, wallets }) => {
   const minVal = Math.min(...dataPoints.map(d => d.value));
   const maxVal = Math.max(...dataPoints.map(d => d.value));
   const range = maxVal - minVal || 1;
-  const padding = range * 0.1; // 10% padding
+  const padding = Math.abs(range) * 0.1; // 10% padding
   const plotMin = minVal - padding;
   const plotMax = maxVal + padding;
-  const plotRange = plotMax - plotMin;
+  const plotRange = plotMax - plotMin || 1; // Prevent div by zero
 
   const width = 100;
   const height = 50;
@@ -213,8 +223,8 @@ const NetWorthLineChart = ({ transactions, wallets }) => {
 
   return (
     <div className="bg-white p-4 rounded-3xl border border-gray-200 shadow-sm mb-6 h-full">
-        <div className="flex items-center gap-2 mb-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
-            <TrendingUp size={14} className="text-blue-500"/> ความมั่งคั่ง (6 เดือนล่าสุด)
+        <div className="flex items-center gap-2 mb-4 text-sm font-bold text-gray-800 uppercase tracking-wider border-l-4 border-gray-800 pl-2">
+            <TrendingUp size={16} className="text-blue-500"/> ความมั่งคั่ง (6 เดือนล่าสุด)
         </div>
         <div className="relative h-32 w-full">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
@@ -333,7 +343,7 @@ const CalendarHeatmap = ({ transactions, selectedMonth }) => {
   };
   return (
     <div className="bg-white p-4 rounded-3xl border border-gray-200 shadow-sm mb-6">
-      <div className="flex items-center gap-2 mb-3 text-xs font-bold text-gray-400 uppercase tracking-wider"><Activity size={14} /> ปฏิทินการใช้เงิน ({now.toLocaleString('th-TH', { month: 'long' })})</div>
+      <div className="flex items-center gap-2 mb-3 text-sm font-bold text-gray-800 uppercase tracking-wider border-l-4 border-gray-800 pl-2"><Activity size={16} /> ปฏิทินการใช้เงิน ({now.toLocaleString('th-TH', { month: 'long' })})</div>
       <div className="grid grid-cols-7 gap-1.5">{days.map(day => (<div key={day} className="flex flex-col items-center"><div className={`w-full aspect-square rounded-lg flex flex-col items-center justify-center text-[10px] font-bold transition-all border border-transparent ${getColor(dailySpending[day])}`} title={`วันที่ ${day}: ฿${dailySpending[day] || 0}`}><span className="text-[8px] opacity-60 leading-none mb-0.5">{day}</span><span className="leading-none text-[9px]">{formatMoney(dailySpending[day])}</span></div></div>))}</div>
     </div>
   );
@@ -347,6 +357,7 @@ export default function App() {
   const [debts, setDebts] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [events, setEvents] = useState([]);
+  const [quickMenus, setQuickMenus] = useState([]);
   const [appProfiles, setAppProfiles] = useState(defaultProfiles);
   
   const [activeWalletId, setActiveWalletId] = useState(null);
@@ -360,7 +371,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [showCalculator, setShowCalculator] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
-
+  
   // New State for Month Filter
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
@@ -375,7 +386,7 @@ export default function App() {
     date: new Date().toISOString().slice(0, 10),
   });
 
-  const [walletForm, setWalletForm] = useState({ id: null, name: '', initialBalance: '', icon: '💵', color: '#1e40af', owner: 'hart' });
+  const [walletForm, setWalletForm] = useState({ id: null, name: '', initialBalance: '', icon: '💵', color: '#1e40af', owner: 'hart', type: 'cash' });
   const [budgetForm, setBudgetForm] = useState({ id: null, category: '', limit: '' });
   const [billForm, setBillForm] = useState({ title: '', amount: '', recurringDay: '' });
   const [debtForm, setDebtForm] = useState({ person: '', amount: '', type: 'lent', note: '' });
@@ -383,6 +394,7 @@ export default function App() {
   const [eventForm, setEventForm] = useState({ id: null, title: '', date: '', items: [] });
   const [eventItemForm, setEventItemForm] = useState({ name: '', cost: '' });
   const [profileForm, setProfileForm] = useState({ name: '', icon: '', theme: '' });
+  const [quickMenuForm, setQuickMenuForm] = useState({ name: '', amount: '', icon: '🍔', category: 'อาหาร' });
   const [payBillData, setPayBillData] = useState(null);
 
   const showToast = (message, type = 'success') => setToast({ message, type });
@@ -408,11 +420,27 @@ export default function App() {
   useEffect(() => {
     const unsubW = onSnapshot(query(collection(db, "wallets"), orderBy("createdAt", "asc")), (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort client-side based on 'order' field. If 'order' is missing, fallback to createdAt (via index in this simple sort)
+      data.sort((a, b) => {
+          const orderA = a.order !== undefined ? a.order : 9999;
+          const orderB = b.order !== undefined ? b.order : 9999;
+          return orderA - orderB;
+      });
       setWallets(data);
     });
 
     const unsubT = onSnapshot(query(collection(db, "transactions"), orderBy("timestamp", "desc")), (snap) => {
         setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // Quick Menus
+    const unsubQM = onSnapshot(collection(db, "quick_menus"), (snap) => {
+        if (snap.empty) {
+            // Init default if empty
+            defaultQuickMenus.forEach(m => addDoc(collection(db, "quick_menus"), m));
+        } else {
+            setQuickMenus(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }
     });
 
     const unsubB = onSnapshot(query(collection(db, "budgets")), (snap) => setBudgets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
@@ -425,7 +453,7 @@ export default function App() {
         else setDoc(doc.ref, defaultProfiles);
     });
 
-    return () => { unsubW(); unsubT(); unsubB(); unsubBills(); unsubDebts(); unsubWish(); unsubEvents(); unsubProfiles(); };
+    return () => { unsubW(); unsubT(); unsubQM(); unsubB(); unsubBills(); unsubDebts(); unsubWish(); unsubEvents(); unsubProfiles(); };
   }, []);
 
   const visibleWallets = wallets.filter(w => currentProfile === 'family' ? true : (w.owner === currentProfile || !w.owner));
@@ -433,12 +461,10 @@ export default function App() {
   useEffect(() => {
     if (visibleWallets.length > 0 && !visibleWallets.find(w => w.id === activeWalletId)) setActiveWalletId(visibleWallets[0].id);
     else if (visibleWallets.length === 0) setActiveWalletId(null);
-  }, [currentProfile, wallets]);
+  }, [currentProfile, wallets]); // Depend on 'wallets' to update if order changes
 
   const activeWallet = visibleWallets.find(w => w.id === activeWalletId) || {};
   
-  // RENDER OPTIMIZATION: Filter transactions for display ONLY
-  // This keeps the DOM light while having full data in memory for calculations
   const displayTransactions = useMemo(() => {
       const start = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1).getTime();
       const end = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0, 23, 59, 59).getTime();
@@ -447,11 +473,12 @@ export default function App() {
 
   const currentWalletTransactions = displayTransactions.filter(t => t.walletId === activeWalletId);
 
-  // Calculations (Using ALL transactions for accuracy)
+  // Calculations
   const calculateBalance = (wallet) => {
     if (!wallet) return 0;
     const walletTx = transactions.filter(t => t.walletId === wallet.id);
-    return (parseFloat(wallet.initialBalance) || 0) + walletTx.reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
+    const calculated = (parseFloat(wallet.initialBalance) || 0) + walletTx.reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
+    return calculated;
   };
 
   const calculateDailyChange = (walletId) => {
@@ -474,7 +501,6 @@ export default function App() {
   const profileBudgets = budgets.filter(b => currentProfile === 'family' ? true : (b.owner === currentProfile));
   const totalMonthlyBudget = profileBudgets.reduce((acc, b) => acc + b.limit, 0);
   
-  // Budget calculation uses CURRENT month transactions
   const budgetedExpenses = transactions.filter(t => {
     const txDate = new Date(t.timestamp);
     const isBudgeted = profileBudgets.some(b => b.category === t.category);
@@ -490,7 +516,6 @@ export default function App() {
   const dailyBudget = totalMonthlyBudget > 0 ? (remainingBudget / daysRemaining) : 0;
 
   const reportStats = useMemo(() => {
-    // For Report: Use selected month transactions (displayTransactions)
     const filteredTx = displayTransactions.filter(t => {
        if (!visibleWallets.some(w => w.id === t.walletId)) return false;
        return true;
@@ -641,11 +666,53 @@ export default function App() {
     if (!walletForm.name) return showToast("ใส่ชื่อกระเป๋า", "error");
     setLoading(true);
     try {
-      const walletData = { name: walletForm.name, initialBalance: parseFloat(walletForm.initialBalance) || 0, icon: walletForm.icon, color: walletForm.color, owner: walletForm.owner };
-      if (walletForm.id) await updateDoc(doc(db, "wallets", walletForm.id), walletData);
-      else { const newRef = await addDoc(collection(db, "wallets"), { ...walletData, createdAt: Date.now() }); setActiveWalletId(newRef.id); }
-      setWalletForm({ id: null, name: '', initialBalance: '', icon: '💵', color: '#1e40af', owner: currentProfile }); setModalMode(null); showToast("บันทึกกระเป๋าเรียบร้อย");
+      const walletData = { 
+          name: walletForm.name, 
+          initialBalance: parseFloat(walletForm.initialBalance) || 0, 
+          icon: walletForm.icon, 
+          color: walletForm.color, 
+          owner: walletForm.owner,
+          type: walletForm.type || 'cash',
+          order: wallets.length // New wallets go to end
+      };
+      if (walletForm.id) {
+          // If editing, preserve order
+          delete walletData.order;
+          await updateDoc(doc(db, "wallets", walletForm.id), walletData);
+      }
+      else { 
+          const newRef = await addDoc(collection(db, "wallets"), { ...walletData, createdAt: Date.now() }); 
+          setActiveWalletId(newRef.id); 
+      }
+      setWalletForm({ id: null, name: '', initialBalance: '', icon: '💵', color: '#1e40af', owner: currentProfile, type: 'cash' }); setModalMode(null); showToast("บันทึกกระเป๋าเรียบร้อย");
     } catch (error) { showToast(error.message, "error"); } finally { setLoading(false); }
+  };
+
+  const handleDeleteWallet = async (walletId) => {
+    if (confirm("⚠️ ลบกระเป๋านี้จริงหรือไม่? ข้อมูลธุรกรรมทั้งหมดในกระเป๋านี้จะถูกลบด้วย!")) {
+        setLoading(true);
+        try {
+            // 1. Delete transactions first (Safety cleanup)
+            const q = query(collection(db, "transactions"), where("walletId", "==", walletId));
+            const snapshot = await getDocs(q);
+            const batch = writeBatch(db);
+            snapshot.docs.forEach((doc) => { batch.delete(doc.ref); });
+            
+            // 2. Delete wallet
+            batch.delete(doc(db, "wallets", walletId));
+            
+            await batch.commit();
+            
+            // 3. Reset state
+            if (activeWalletId === walletId) setActiveWalletId(null);
+            setModalMode(null);
+            showToast("ลบกระเป๋าเรียบร้อยแล้ว");
+        } catch (error) {
+            showToast("เกิดข้อผิดพลาด: " + error.message, "error");
+        } finally {
+            setLoading(false);
+        }
+    }
   };
 
   const handleClearWalletTransactions = async (walletId) => {
@@ -754,11 +821,11 @@ export default function App() {
   const handleDeleteBudget = async (id) => { if(confirm("ลบงบประมาณ?")) { await deleteDoc(doc(db, "budgets", id)); setModalMode(null); }};
   const handleDeleteBill = async (id) => { if(confirm("ลบบิลนี้?")) await deleteDoc(doc(db, "bills", id)); };
 
-  const openEditWallet = (wallet) => { setWalletForm({ id: wallet.id, name: wallet.name, initialBalance: wallet.initialBalance, icon: wallet.icon, color: wallet.color, owner: wallet.owner || 'hart' }); setModalMode('manage-wallet'); };
+  const openEditWallet = (wallet) => { setWalletForm({ id: wallet.id, name: wallet.name, initialBalance: wallet.initialBalance, icon: wallet.icon, color: wallet.color, owner: wallet.owner || 'hart', type: wallet.type || 'cash' }); setModalMode('manage-wallet'); };
   const openCreateWallet = () => { 
     const defaultOwner = currentProfile === 'family' ? 'hart' : currentProfile;
     const defaultColor = defaultOwner === 'jah' ? '#be123c' : '#1e40af';
-    setWalletForm({ id: null, name: '', initialBalance: '', icon: '💵', color: defaultColor, owner: defaultOwner }); setModalMode('manage-wallet'); 
+    setWalletForm({ id: null, name: '', initialBalance: '', icon: '💵', color: defaultColor, owner: defaultOwner, type: 'cash' }); setModalMode('manage-wallet'); 
   };
   const openCreateBudget = () => { setBudgetForm({ id: null, category: '', limit: '' }); setModalMode('manage-budget'); };
   const openEditBudget = (b) => { setBudgetForm({ id: b.id, category: b.category, limit: b.limit }); setModalMode('manage-budget'); };
@@ -768,6 +835,47 @@ export default function App() {
     const newDate = new Date(selectedMonth);
     newDate.setMonth(newDate.getMonth() + direction);
     setSelectedMonth(newDate);
+  };
+
+  // --- Quick Menu Logic ---
+  const handleQuickAdd = async (menu) => {
+      setLoading(true);
+      try {
+          await addDoc(collection(db, "transactions"), {
+              amount: parseFloat(menu.amount),
+              category: menu.category,
+              type: 'expense',
+              isTransfer: false,
+              walletId: activeWalletId,
+              timestamp: Date.now(),
+              dateDisplay: new Date().toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}),
+              note: `ด่วน: ${menu.name}`
+          });
+          triggerAnimation('expense');
+          showToast(`บันทึก ${menu.name} ${menu.amount}฿ แล้ว!`);
+      } catch(e) { 
+          showToast("บันทึกไม่สำเร็จ: " + e.message, "error");
+      } finally { 
+          setLoading(false); 
+      }
+  };
+
+  const openManageQuickMenu = () => { setQuickMenuForm({ name: '', amount: '', icon: '🍔', category: 'อาหาร' }); setModalMode('manage-quick-menu'); };
+  const handleSaveQuickMenu = async () => {
+      if(!quickMenuForm.name || !quickMenuForm.amount) return showToast("กรอกชื่อและราคา", "error");
+      setLoading(true);
+      try {
+          if (quickMenuForm.id) {
+              await updateDoc(doc(db, "quick_menus", quickMenuForm.id), quickMenuForm);
+          } else {
+              await addDoc(collection(db, "quick_menus"), quickMenuForm);
+          }
+          setModalMode(null);
+          showToast("บันทึกเมนูลัดแล้ว");
+      } catch(e) { showToast(e.message, "error"); } finally { setLoading(false); }
+  };
+  const handleDeleteQuickMenu = async (id) => {
+      if(confirm("ลบเมนูนี้?")) await deleteDoc(doc(db, "quick_menus", id));
   };
   
   return (
@@ -882,8 +990,36 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                     {/* LEFT COLUMN (STATS & WALLETS) */}
                     <div className="md:col-span-7 space-y-6">
+                        
+                        {/* Quick Menu Section */}
+                        <div className="px-5 md:px-0">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-gray-800 pl-2">
+                                    <Zap size={16} className="text-yellow-500"/> เมนูลัด (กดแล้วจดเลย)
+                                </span>
+                                <button onClick={openManageQuickMenu} className="text-gray-400 hover:text-gray-600"><Edit3 size={14}/></button>
+                            </div>
+                            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                                {quickMenus.map((menu, idx) => (
+                                    <button 
+                                        key={idx} 
+                                        onClick={() => handleQuickAdd(menu)}
+                                        disabled={loading}
+                                        className="flex-shrink-0 bg-white border border-gray-200 rounded-xl p-2 flex flex-col items-center min-w-[70px] active:scale-95 transition-transform hover:border-yellow-400 hover:bg-yellow-50"
+                                    >
+                                        <span className="text-xl mb-1">{menu.icon}</span>
+                                        <span className="text-[9px] font-bold text-gray-600 truncate w-full text-center">{menu.name}</span>
+                                        <span className="text-[9px] text-gray-400">฿{menu.amount}</span>
+                                    </button>
+                                ))}
+                                <button onClick={openManageQuickMenu} className="flex-shrink-0 bg-gray-50 border border-dashed border-gray-300 rounded-xl p-2 flex flex-col items-center justify-center min-w-[70px] text-gray-400 hover:bg-gray-100">
+                                    <Plus size={20}/>
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Total Wealth & Daily Budget */}
-                        <div className="px-5 pt-4 md:px-0 md:pt-0 grid grid-cols-2 gap-3">
+                        <div className="px-5 pt-2 md:px-0 md:pt-0 grid grid-cols-2 gap-3">
                           <div className={`p-4 rounded-2xl text-white shadow-lg bg-gradient-to-br ${themeColor.class} relative overflow-hidden group`}>
                             <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Wallet size={64}/></div>
                             <p className="text-[9px] font-bold opacity-70 mb-1 uppercase tracking-wide">สินทรัพย์รวม</p>
@@ -903,29 +1039,48 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Wallets */}
+                        {/* Wallets (Sorting & Credit Logic) */}
                         <div className="pt-4 pb-2 md:px-0 md:pt-0">
                           <div className="px-5 mb-2 md:px-0 flex justify-between items-center">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">กระเป๋าเงิน</span>
-                            {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-full flex items-center gap-1 border border-gray-300"><Plus size={10} /> เพิ่ม</button>)}
+                            <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-gray-800 pl-2">
+                                กระเป๋าเงิน
+                            </span>
+                            <div className="flex gap-2">
+                                {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-full flex items-center gap-1 border border-gray-300"><Plus size={10} /> เพิ่ม</button>)}
+                            </div>
                           </div>
                           <div className="flex gap-3 overflow-x-auto px-5 pb-2 md:px-0 no-scrollbar snap-x cursor-grab active:cursor-grabbing md:grid md:grid-cols-3 md:overflow-visible">
                             {visibleWallets.length === 0 ? (
                               <div className="w-full md:col-span-3 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
-                            ) : visibleWallets.map(wallet => {
+                            ) : visibleWallets.map((wallet, index) => {
                               const isActive = wallet.id === activeWalletId;
-                              const balance = calculateBalance(wallet);
+                              const rawBalance = calculateBalance(wallet);
                               const dailyChange = calculateDailyChange(wallet.id);
+                              
+                              // Credit Card Logic: Invert Concept
+                              // Balance < 0 means "Debt" (shown as positive used). 
+                              // User wants to see "How much I owe". 
+                              const isCredit = wallet.type === 'credit';
+                              const displayBalance = isCredit ? Math.abs(rawBalance) : rawBalance;
+                              const displayLabel = isCredit ? 'ยอดใช้ไป (หนี้)' : 'คงเหลือ';
+                              const balanceColor = isCredit ? 'text-red-100' : 'text-white';
+
                               return (
-                                <div key={wallet.id} className="relative group flex-shrink-0 md:w-full">
-                                  <button onClick={() => setActiveWalletId(wallet.id)} className={`relative w-40 md:w-full h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' : 'scale-95 opacity-80 hover:opacity-100 hover:scale-[0.98]'}`} style={{ backgroundColor: wallet.color, color: 'white' }}>
+                                <div 
+                                    key={wallet.id} 
+                                    className="relative group flex-shrink-0 md:w-full"
+                                >
+                                  <button disabled={false} onClick={() => setActiveWalletId(wallet.id)} className={`relative w-40 md:w-full h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' : 'scale-95 opacity-80 hover:opacity-100 hover:scale-[0.98]'}`} style={{ backgroundColor: wallet.color, color: 'white' }}>
                                     <div className="flex justify-between items-start mb-1"><span className="text-xl drop-shadow-sm">{wallet.icon}</span>{isActive && <span className="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold backdrop-blur-sm">ACTIVE</span>}</div>
                                     <div className="mt-auto">
-                                      <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90">{wallet.name}</p>
+                                      <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90 flex items-center gap-1">{isCredit && <CreditCard size={10}/>} {wallet.name}</p>
                                       <div className="flex items-baseline gap-1">
-                                        <span className="text-lg font-bold tracking-tight">{privacyMode ? '••••••' : balance.toLocaleString()}</span>
+                                        <div className="flex flex-col">
+                                            {isCredit && <span className="text-[8px] opacity-75 leading-none mb-0.5">{displayLabel}</span>}
+                                            <span className={`text-lg font-bold tracking-tight ${balanceColor}`}>{privacyMode ? '••••••' : displayBalance.toLocaleString()}</span>
+                                        </div>
                                         {!privacyMode && dailyChange !== 0 && (
-                                          <span className={`text-[9px] ${isActive ? (dailyChange > 0 ? 'text-green-200' : 'text-red-200') : (dailyChange > 0 ? 'text-green-600' : 'text-red-500')}`}>
+                                          <span className={`text-[9px] ${isActive ? 'text-white/70' : 'text-gray-200'}`}>
                                             ({dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()})
                                           </span>
                                         )}
@@ -943,7 +1098,9 @@ export default function App() {
                         {/* Budgets */}
                         <div className="px-5 py-2 md:px-0">
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Target size={12}/> เป้าหมาย (เดือนนี้)</span>
+                            <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-gray-800 pl-2">
+                                <Target size={16}/> งบประมาณ (เดือนนี้)
+                            </span>
                             {currentProfile !== 'family' && <button onClick={openCreateBudget} className={`text-[10px] ${themeColor.text} font-bold flex items-center gap-1 hover:opacity-80`}>+ ตั้งเป้า</button>}
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x md:grid md:grid-cols-3 md:overflow-visible">
@@ -976,7 +1133,7 @@ export default function App() {
 
                         {/* Transactions List */}
                         <div className="px-5 pt-2 md:px-0 md:flex-1 md:overflow-y-auto md:pr-2">
-                          <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1"><Activity size={12}/> รายการ (เดือนที่เลือก)</h3>
+                          <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-l-4 border-gray-800 pl-2"><Activity size={16}/> รายการ (เดือนที่เลือก)</h3>
                           {currentWalletTransactions.length === 0 ? (
                              <div className="py-8 flex flex-col items-center justify-center text-gray-400 gap-2 border border-dashed border-gray-300 rounded-xl bg-gray-50/50"><Wallet size={20} className="opacity-50"/><p className="text-[10px]">ยังไม่มีรายการในเดือนนี้</p></div>
                           ) : (
@@ -1143,7 +1300,7 @@ export default function App() {
                     <CalendarHeatmap transactions={displayTransactions} selectedMonth={selectedMonth} />
                   </div>
                   <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm flex flex-col items-center">
-                     <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">สัดส่วนการเงิน (เดือนนี้)</h3>
+                     <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2 border-l-4 border-gray-800 pl-2">สัดส่วนการเงิน (เดือนนี้)</h3>
                      <SimpleDonutChart income={reportStats.income} expense={reportStats.expense} />
                      <div className="grid grid-cols-2 gap-4 w-full mt-6">
                        <div className="text-center p-3 bg-green-50 rounded-xl border border-green-100"><p className="text-[10px] text-green-600 font-bold mb-1">รายรับ</p><p className="font-bold text-green-800">{reportStats.income.toLocaleString()}</p></div>
@@ -1151,7 +1308,7 @@ export default function App() {
                      </div>
                   </div>
                   <div className="md:col-span-2 bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
-                     <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">อันดับค่าใช้จ่าย</h3>
+                     <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2 border-l-4 border-gray-800 pl-2">อันดับค่าใช้จ่าย</h3>
                      {reportStats.sortedCats.length === 0 ? <div className="text-center py-8 text-gray-300 text-xs">ว่างเปล่า... ดีแล้ว!</div> : reportStats.sortedCats.map(([catName, amount]) => {
                         const catInfo = expenseCategories.find(c => c.name === catName) || { icon: '💸', color: '#94a3b8' };
                         return <CategoryBar key={catName} category={catName} amount={amount} total={reportStats.expense} color={catInfo.color} icon={catInfo.icon}/>;
@@ -1282,7 +1439,14 @@ export default function App() {
                  <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">{walletForm.id ? 'แก้ไขกระเป๋า' : 'สร้างกระเป๋าใหม่'}</h2><div className="w-10"></div></div>
                 <div className="flex-1 p-6 space-y-5 overflow-y-auto">
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อกระเป๋า</label><input type="text" value={walletForm.name} onChange={e => setWalletForm({...walletForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น เงินเดือน"/></div>
-                  <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">เงินตั้งต้น</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00"/></div>
+                  
+                  {/* Credit Card Toggle */}
+                  <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                      <button onClick={() => setWalletForm({...walletForm, type: 'cash'})} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${walletForm.type === 'cash' ? 'bg-white shadow text-green-700' : 'text-gray-400'}`}>💵 เงินสด/ออมทรัพย์</button>
+                      <button onClick={() => setWalletForm({...walletForm, type: 'credit'})} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${walletForm.type === 'credit' ? 'bg-gray-800 shadow text-white' : 'text-gray-400'}`}>💳 บัตรเครดิต (ใช้ก่อนจ่ายทีหลัง)</button>
+                  </div>
+
+                  <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">{walletForm.type === 'credit' ? 'วงเงิน (หรือหนี้เริ่มต้น)' : 'เงินตั้งต้น'}</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00"/></div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ธนาคาร (ทางลัด)</label>
                     <div className="grid grid-cols-4 gap-2">
@@ -1301,10 +1465,55 @@ export default function App() {
                 <div className="p-4 border-t border-gray-200 bg-white space-y-3">
                    <button onClick={handleSaveWallet} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? 'กำลังบันทึก...' : 'บันทึกกระเป๋า'}</button>
                    {walletForm.id && (
-                     <button onClick={() => handleClearWalletTransactions(walletForm.id)} className="w-full bg-red-50 text-red-600 h-12 rounded-xl font-bold text-sm hover:bg-red-100 transition-all flex items-center justify-center gap-2"><Trash2 size={16}/> ล้างประวัติธุรกรรม</button>
+                     <>
+                        <button onClick={() => handleClearWalletTransactions(walletForm.id)} className="w-full bg-orange-50 text-orange-600 h-12 rounded-xl font-bold text-sm hover:bg-orange-100 transition-all flex items-center justify-center gap-2"><RefreshCw size={16}/> ล้างประวัติธุรกรรม</button>
+                        <button onClick={() => handleDeleteWallet(walletForm.id)} className="w-full bg-red-50 text-red-600 h-12 rounded-xl font-bold text-sm hover:bg-red-100 transition-all flex items-center justify-center gap-2"><Trash2 size={16}/> ลบกระเป๋า</button>
+                     </>
                    )}
                 </div>
              </div>
+          </div>
+        )}
+
+        {/* MODAL: MANAGE QUICK MENU */}
+        {modalMode === 'manage-quick-menu' && (
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/50">
+            <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">จัดการเมนูลัด</h2><div className="w-10"></div></div>
+                <div className="flex-1 p-6 overflow-y-auto">
+                    
+                    {/* Add New Form */}
+                    <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-200">
+                        <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase">เพิ่ม/แก้ไข เมนู</h3>
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                            <input type="text" value={quickMenuForm.name} onChange={e => setQuickMenuForm({...quickMenuForm, name: e.target.value})} placeholder="ชื่อเมนู (เช่น กะเพรา)" className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none"/>
+                            <input type="number" value={quickMenuForm.amount} onChange={e => setQuickMenuForm({...quickMenuForm, amount: e.target.value})} placeholder="ราคา" className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none"/>
+                        </div>
+                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mb-3">
+                            {['🍔','🍜','☕','🚌','🛒','💊','⛽'].map(icon => (
+                                <button key={icon} onClick={() => setQuickMenuForm({...quickMenuForm, icon})} className={`w-8 h-8 rounded-lg border flex-shrink-0 ${quickMenuForm.icon === icon ? 'bg-blue-100 border-blue-500' : 'bg-white border-gray-200'}`}>{icon}</button>
+                            ))}
+                        </div>
+                        <button onClick={handleSaveQuickMenu} disabled={loading} className="w-full bg-blue-600 text-white py-2 rounded-lg text-xs font-bold">บันทึกเมนู</button>
+                    </div>
+
+                    {/* List Existing */}
+                    <div className="space-y-2">
+                        {quickMenus.map(menu => (
+                            <div key={menu.id} className="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-xl">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl">{menu.icon}</span>
+                                    <div><p className="text-xs font-bold text-gray-800">{menu.name}</p><p className="text-[10px] text-gray-400">{menu.amount} บาท</p></div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setQuickMenuForm(menu)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={14}/></button>
+                                    <button onClick={() => handleDeleteQuickMenu(menu.id)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
           </div>
         )}
 
@@ -1312,7 +1521,7 @@ export default function App() {
         {modalMode === 'manage-budget' && (
           <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200 md:items-center md:justify-center md:bg-black/50 md:slide-in-from-bottom">
              <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-                 <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">{budgetForm.id ? 'แก้ไขงบ' : 'ตั้งเป้าใหม่'}</h2>{budgetForm.id ? <button onClick={() => handleDeleteBudget(budgetForm.id)} className="text-red-500"><Trash2 size={20}/></button> : <div className="w-5"></div>}</div>
+                 <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">{budgetForm.id ? 'แก้ไขงบ' : 'ตั้งงบประมาณใหม่'}</h2>{budgetForm.id ? <button onClick={() => handleDeleteBudget(budgetForm.id)} className="text-red-500"><Trash2 size={20}/></button> : <div className="w-5"></div>}</div>
                  <div className="flex-1 p-6 space-y-6 overflow-y-auto">
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-3 block">หมวดหมู่</label><div className="grid grid-cols-4 gap-3">{expenseCategories.map(cat => (<button key={cat.id} onClick={() => setBudgetForm({...budgetForm, category: cat.name})} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${budgetForm.category === cat.name ? `bg-${themeColor.theme}-600 text-white shadow-lg scale-105 border-${themeColor.theme}-600` : 'border-gray-200 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div></div>
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">งบ (บาท)</label><input type="number" autoFocus value={budgetForm.limit} onChange={e => setBudgetForm({...budgetForm, limit: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-xl font-bold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น 5000"/></div>
