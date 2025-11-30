@@ -634,10 +634,11 @@ export default function App() {
           icon: walletForm.icon, 
           color: walletForm.color, 
           owner: walletForm.owner,
-          type: 'general',
-          order: wallets.length 
+          type: 'general', // Default type
+          order: wallets.length // New wallets go to end
       };
       if (walletForm.id) {
+          // If editing, preserve order
           delete walletData.order;
           await updateDoc(doc(db, "wallets", walletForm.id), walletData);
       }
@@ -653,15 +654,18 @@ export default function App() {
     if (confirm("⚠️ ลบกระเป๋านี้จริงหรือไม่? ข้อมูลธุรกรรมทั้งหมดในกระเป๋านี้จะถูกลบด้วย!")) {
         setLoading(true);
         try {
+            // 1. Delete transactions first (Safety cleanup)
             const q = query(collection(db, "transactions"), where("walletId", "==", walletId));
             const snapshot = await getDocs(q);
             const batch = writeBatch(db);
             snapshot.docs.forEach((doc) => { batch.delete(doc.ref); });
             
+            // 2. Delete wallet
             batch.delete(doc(db, "wallets", walletId));
             
             await batch.commit();
             
+            // 3. Reset state
             if (activeWalletId === walletId) setActiveWalletId(null);
             setModalMode(null);
             showToast("ลบกระเป๋าเรียบร้อยแล้ว");
@@ -997,7 +1001,7 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Wallets (Accordion UI) */}
+                        {/* Wallets (Vertical List UI) */}
                         <div className="pt-4 pb-2 md:px-0 md:pt-0">
                           <div className="px-5 mb-2 md:px-0 flex justify-between items-center">
                             <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-gray-800 pl-2">
@@ -1007,9 +1011,9 @@ export default function App() {
                                 {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-full flex items-center gap-1 border border-gray-300"><Plus size={10} /> เพิ่ม</button>)}
                             </div>
                           </div>
-                          <div className="flex gap-3 overflow-x-auto px-5 pb-2 md:px-0 no-scrollbar snap-x cursor-grab active:cursor-grabbing md:flex-wrap">
+                          <div className="grid grid-cols-1 gap-3 px-5 pb-2 md:px-0 md:grid-cols-2">
                             {visibleWallets.length === 0 ? (
-                              <div className="w-full md:w-full h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
+                              <div className="w-full h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
                             ) : visibleWallets.map((wallet, index) => {
                               const isActive = wallet.id === activeWalletId;
                               const balance = calculateBalance(wallet);
@@ -1020,40 +1024,43 @@ export default function App() {
                               return (
                                 <div 
                                     key={wallet.id} 
-                                    className={`relative flex-shrink-0 transition-all duration-300 ease-out ${isActive ? 'w-48 md:w-64' : 'w-14 md:w-16'}`}
+                                    className="relative w-full"
                                 >
                                   <button 
                                     onClick={() => setActiveWalletId(wallet.id)} 
-                                    className={`relative h-24 rounded-2xl shadow-md overflow-hidden transition-all w-full ${isActive ? 'p-3 ring-2 ring-offset-1 ring-gray-400' : 'p-0 opacity-80 hover:opacity-100 hover:scale-105'}`} 
+                                    className={`relative w-full h-24 rounded-2xl shadow-md overflow-hidden transition-all flex items-center justify-between px-4 ${isActive ? 'ring-2 ring-offset-1 ring-gray-400' : 'opacity-90 hover:opacity-100 hover:scale-[1.02]'}`} 
                                     style={{ backgroundColor: wallet.color, color: 'white' }}
                                   >
-                                    {/* Active State Content */}
-                                    {isActive ? (
-                                      <>
-                                        <div className="flex justify-between items-start mb-1">
-                                          <span className="text-2xl drop-shadow-sm">{wallet.icon}</span>
-                                          {ownerProfile && <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs border border-white/30" title={ownerProfile.name}>{ownerProfile.icon}</div>}
+                                    <div className="flex items-center gap-4 z-10">
+                                        <div className="relative">
+                                            <span className="text-3xl drop-shadow-md">{wallet.icon}</span>
+                                            {ownerProfile && <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center text-xs border border-gray-100 shadow-sm" title={ownerProfile.name}>{ownerProfile.icon}</div>}
                                         </div>
-                                        <div className="mt-auto text-left">
-                                          <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90">{wallet.name}</p>
-                                          <div className="flex items-baseline gap-1">
-                                            <span className={`text-lg font-bold tracking-tight ${isNegative ? 'text-red-200' : 'text-white'}`}>{privacyMode ? '••••••' : balance.toLocaleString()}</span>
-                                            {!privacyMode && dailyChange !== 0 && (
-                                              <span className={`text-[9px] text-white/70`}>({dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()})</span>
-                                            )}
-                                          </div>
+                                        <div className="text-left">
+                                            <p className="text-xs uppercase font-bold opacity-80 mb-0.5">{wallet.name}</p>
+                                            <p className="text-[10px] opacity-60">ของ {ownerProfile?.name}</p>
                                         </div>
-                                        {currentProfile !== 'family' && <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30 cursor-pointer"><Settings size={10} /></div>}
-                                        <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>
-                                      </>
-                                    ) : (
-                                      /* Inactive State Content */
-                                      <div className="flex flex-col items-center justify-center h-full w-full gap-1">
-                                        <span className="text-xl drop-shadow-sm">{wallet.icon}</span>
-                                        {ownerProfile && <div className="absolute top-1 right-1 w-3 h-3 rounded-full bg-white/30 flex items-center justify-center text-[8px]">{ownerProfile.icon}</div>}
-                                      </div>
-                                    )}
+                                    </div>
+                                    
+                                    <div className="text-right z-10">
+                                        <span className={`text-xl font-bold tracking-tight block ${isNegative ? 'text-red-200' : 'text-white'}`}>{privacyMode ? '••••••' : balance.toLocaleString()}</span>
+                                        {!privacyMode && dailyChange !== 0 && (
+                                          <span className="text-[10px] opacity-80 block">
+                                            {dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()} วันนี้
+                                          </span>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Decorative Elements */}
+                                    <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
+                                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-black/10 to-transparent pointer-events-none"></div>
                                   </button>
+                                  
+                                  {isActive && currentProfile !== 'family' && (
+                                    <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30 cursor-pointer z-20">
+                                        <Settings size={12} />
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -1454,6 +1461,7 @@ export default function App() {
                 <div className="flex-1 p-6 space-y-5 overflow-y-auto">
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อกระเป๋า</label><input type="text" value={walletForm.name} onChange={e => setWalletForm({...walletForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น เงินเดือน"/></div>
                   
+                  {/* Removed Credit Card Toggle, Replaced with simple Balance Input */}
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">เงินตั้งต้น (ใส่ลบได้ เช่น -5000)</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00 หรือ -10000"/></div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ธนาคาร (ทางลัด)</label>
