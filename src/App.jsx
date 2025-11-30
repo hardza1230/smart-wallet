@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake, UserCog, Calendar, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List, GripVertical, Coffee, ShoppingBag, CreditCard } from 'lucide-react';
+import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake, UserCog, Calendar, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List, GripVertical, Coffee, ShoppingBag, CreditCard, Pencil } from 'lucide-react';
 
 // --- Firebase Config & Init ---
 import { initializeApp } from "firebase/app";
@@ -155,15 +155,8 @@ const NetWorthLineChart = ({ transactions, wallets }) => {
 
   useEffect(() => {
     if (!wallets.length) return;
-
-    // Initial Wealth (Sum of all wallet initial balances)
-    // Credit card 'initialBalance' usually represents debt or limit? 
-    // Convention: Wallet Balance is what you HAVE. 
-    // Credit Card: Balance is usually negative (debt).
     
     const today = new Date();
-    
-    // Generate last 6 months labels
     const months = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
@@ -177,19 +170,14 @@ const NetWorthLineChart = ({ transactions, wallets }) => {
     const chartData = months.map(m => {
         const endOfThisMonth = new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0, 23, 59, 59).getTime();
         
-        // Calculate balance for each wallet at end of month
         const totalWealthAtMonth = wallets.reduce((acc, wallet) => {
             let balance = parseFloat(wallet.initialBalance) || 0;
-            
-            // Apply transactions up to this date
             const relevantTx = transactions.filter(t => t.walletId === wallet.id && t.timestamp <= endOfThisMonth);
-            
             const change = relevantTx.reduce((sum, t) => {
                 if (t.type === 'income') return sum + t.amount;
                 if (t.type === 'expense') return sum - t.amount;
                 return sum;
             }, 0);
-
             return acc + balance + change;
         }, 0);
             
@@ -202,19 +190,17 @@ const NetWorthLineChart = ({ transactions, wallets }) => {
 
   if (dataPoints.length === 0) return null;
 
-  // Find Min/Max for scaling
   const minVal = Math.min(...dataPoints.map(d => d.value));
   const maxVal = Math.max(...dataPoints.map(d => d.value));
   const range = maxVal - minVal || 1;
-  const padding = Math.abs(range) * 0.1; // 10% padding
+  const padding = Math.abs(range) * 0.1; 
   const plotMin = minVal - padding;
   const plotMax = maxVal + padding;
-  const plotRange = plotMax - plotMin || 1; // Prevent div by zero
+  const plotRange = plotMax - plotMin || 1;
 
   const width = 100;
   const height = 50;
   
-  // Create Path
   const points = dataPoints.map((d, i) => {
     const x = (i / (dataPoints.length - 1)) * width;
     const y = height - ((d.value - plotMin) / plotRange) * height;
@@ -228,46 +214,23 @@ const NetWorthLineChart = ({ transactions, wallets }) => {
         </div>
         <div className="relative h-32 w-full">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                {/* Grid Lines */}
                 <line x1="0" y1="0" x2="100" y2="0" stroke="#f1f5f9" strokeWidth="0.5" />
                 <line x1="0" y1="25" x2="100" y2="25" stroke="#f1f5f9" strokeWidth="0.5" />
                 <line x1="0" y1="50" x2="100" y2="50" stroke="#f1f5f9" strokeWidth="0.5" />
-                
-                {/* The Line */}
-                <polyline
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="2"
-                    points={points}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="drop-shadow-sm"
-                />
-                
-                {/* Area under curve */}
-                <polygon
-                    fill="url(#gradient)"
-                    points={`0,${height} ${points} ${width},${height}`}
-                    opacity="0.2"
-                />
+                <polyline fill="none" stroke="#3b82f6" strokeWidth="2" points={points} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm" />
+                <polygon fill="url(#gradient)" points={`0,${height} ${points} ${width},${height}`} opacity="0.2" />
                 <defs>
                     <linearGradient id="gradient" x1="0" x2="0" y1="0" y2="1">
                         <stop offset="0%" stopColor="#3b82f6" />
                         <stop offset="100%" stopColor="white" stopOpacity="0" />
                     </linearGradient>
                 </defs>
-
-                {/* Points */}
                 {dataPoints.map((d, i) => {
                      const x = (i / (dataPoints.length - 1)) * width;
                      const y = height - ((d.value - plotMin) / plotRange) * height;
-                     return (
-                         <circle key={i} cx={x} cy={y} r="1.5" fill="white" stroke="#3b82f6" strokeWidth="1" />
-                     );
+                     return (<circle key={i} cx={x} cy={y} r="1.5" fill="white" stroke="#3b82f6" strokeWidth="1" />);
                 })}
             </svg>
-            
-            {/* Labels */}
             <div className="flex justify-between mt-2 text-[9px] text-gray-400 font-bold">
                 {dataPoints.map((d, i) => (
                     <div key={i} className="flex flex-col items-center">
@@ -314,7 +277,6 @@ const Toast = ({ message, type, onClose }) => {
 };
 
 const CalendarHeatmap = ({ transactions, selectedMonth }) => {
-  // Use selectedMonth to generate the heatmap for that specific month
   const now = selectedMonth || new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -372,10 +334,6 @@ export default function App() {
   const [showCalculator, setShowCalculator] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
   
-  // Reordering State
-  const [isReordering, setIsReordering] = useState(false);
-
-  // New State for Month Filter
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
   // Forms
@@ -387,6 +345,7 @@ export default function App() {
     type: 'expense',
     transferToWalletId: '',
     date: new Date().toISOString().slice(0, 10),
+    isCustomCategory: false,
   });
 
   const [walletForm, setWalletForm] = useState({ id: null, name: '', initialBalance: '', icon: '💵', color: '#1e40af', owner: 'hart', type: 'cash' });
@@ -423,7 +382,6 @@ export default function App() {
   useEffect(() => {
     const unsubW = onSnapshot(query(collection(db, "wallets"), orderBy("createdAt", "asc")), (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Sort client-side based on 'order' field. If 'order' is missing, fallback to createdAt (via index in this simple sort)
       data.sort((a, b) => {
           const orderA = a.order !== undefined ? a.order : 9999;
           const orderB = b.order !== undefined ? b.order : 9999;
@@ -436,10 +394,8 @@ export default function App() {
         setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // Quick Menus
     const unsubQM = onSnapshot(collection(db, "quick_menus"), (snap) => {
         if (snap.empty) {
-            // Init default if empty
             defaultQuickMenus.forEach(m => addDoc(collection(db, "quick_menus"), m));
         } else {
             setQuickMenus(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -464,7 +420,7 @@ export default function App() {
   useEffect(() => {
     if (visibleWallets.length > 0 && !visibleWallets.find(w => w.id === activeWalletId)) setActiveWalletId(visibleWallets[0].id);
     else if (visibleWallets.length === 0) setActiveWalletId(null);
-  }, [currentProfile, wallets]); // Depend on 'wallets' to update if order changes
+  }, [currentProfile, wallets]); 
 
   const activeWallet = visibleWallets.find(w => w.id === activeWalletId) || {};
   
@@ -574,7 +530,8 @@ export default function App() {
         type: editData.type,
         transferToWalletId: '', 
         date: new Date(editData.timestamp).toISOString().slice(0, 10),
-        isTransfer: editData.isTransfer
+        isTransfer: editData.isTransfer,
+        isCustomCategory: !expenseCategories.some(c => c.name === editData.category) && !incomeCategories.some(c => c.name === editData.category)
       });
       if (editData.isTransfer) {
         showToast("การแก้ไขรายการโอน อาจทำให้ยอดเงินไม่ตรงกัน แนะนำให้ลบแล้วสร้างใหม่ครับ", "error");
@@ -588,7 +545,8 @@ export default function App() {
         type: selectedType,
         transferToWalletId: '',
         date: new Date().toISOString().slice(0, 10),
-        isTransfer: false
+        isTransfer: false,
+        isCustomCategory: false
       });
     }
     setModalMode('add-transaction'); 
@@ -600,6 +558,7 @@ export default function App() {
   const handleSaveTransaction = async () => {
     const { id, amount, category, tags, type, transferToWalletId, date } = transactionForm;
     if (!amount) return showToast("กรุณากรอกจำนวนเงิน", "error");
+    if (!category) return showToast("กรุณาเลือกหมวดหมู่", "error");
 
     setLoading(true);
     const selectedDate = new Date(date);
@@ -610,8 +569,8 @@ export default function App() {
     }
 
     const dateDisplay = new Date(timestamp).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
-    const tagArray = tags.split(' ').filter(t => t.trim() !== '');
-    const note = tagArray.length > 0 ? tagArray.map(t => t.startsWith('#') ? t : `#${t}`).join(' ') : '';
+    // Tags is now Memo/Note
+    const note = tags; 
     const numericAmount = parseFloat(amount);
 
     try {
@@ -675,11 +634,10 @@ export default function App() {
           icon: walletForm.icon, 
           color: walletForm.color, 
           owner: walletForm.owner,
-          type: 'general', // Default type
-          order: wallets.length // New wallets go to end
+          type: 'general',
+          order: wallets.length 
       };
       if (walletForm.id) {
-          // If editing, preserve order
           delete walletData.order;
           await updateDoc(doc(db, "wallets", walletForm.id), walletData);
       }
@@ -695,18 +653,15 @@ export default function App() {
     if (confirm("⚠️ ลบกระเป๋านี้จริงหรือไม่? ข้อมูลธุรกรรมทั้งหมดในกระเป๋านี้จะถูกลบด้วย!")) {
         setLoading(true);
         try {
-            // 1. Delete transactions first (Safety cleanup)
             const q = query(collection(db, "transactions"), where("walletId", "==", walletId));
             const snapshot = await getDocs(q);
             const batch = writeBatch(db);
             snapshot.docs.forEach((doc) => { batch.delete(doc.ref); });
             
-            // 2. Delete wallet
             batch.delete(doc(db, "wallets", walletId));
             
             await batch.commit();
             
-            // 3. Reset state
             if (activeWalletId === walletId) setActiveWalletId(null);
             setModalMode(null);
             showToast("ลบกระเป๋าเรียบร้อยแล้ว");
@@ -880,48 +835,6 @@ export default function App() {
   const handleDeleteQuickMenu = async (id) => {
       if(confirm("ลบเมนูนี้?")) await deleteDoc(doc(db, "quick_menus", id));
   };
-
-  // --- Reorder Logic (Optimistic) ---
-  const handleMoveWallet = async (index, direction) => {
-    if (index + direction < 0 || index + direction >= visibleWallets.length) return;
-
-    // 1. Optimistic Update (Immediate UI Change)
-    const newWallets = [...visibleWallets];
-    const temp = newWallets[index];
-    newWallets[index] = newWallets[index + direction];
-    newWallets[index + direction] = temp;
-    
-    // We update the local state immediately so user sees the change
-    // Note: We need to update the main 'wallets' state carefully
-    // Strategy: Map new visible order back to full list logic (simplified here for visible only context)
-    // For MVP: Just updating 'visibleWallets' won't stick because 'wallets' drives it.
-    // So we force update 'wallets' state locally by mapping IDs.
-    
-    setWallets(prev => {
-        const next = [...prev];
-        // Find indices in main array
-        const idxA = next.findIndex(w => w.id === newWallets[index].id);
-        const idxB = next.findIndex(w => w.id === newWallets[index + direction].id);
-        if(idxA !== -1 && idxB !== -1) {
-            const t = next[idxA];
-            next[idxA] = next[idxB];
-            next[idxB] = t;
-        }
-        return next;
-    });
-
-    // 2. Background Sync to Firestore
-    try {
-        const batch = writeBatch(db);
-        newWallets.forEach((w, idx) => {
-            const ref = doc(db, "wallets", w.id);
-            batch.update(ref, { order: idx });
-        });
-        await batch.commit();
-    } catch(err) {
-        showToast("เกิดข้อผิดพลาดในการจัดลำดับ", "error");
-    }
-  };
   
   return (
     <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${themeColor.bg} text-gray-900 md:items-center md:p-8`}>
@@ -1084,61 +997,63 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Wallets (Sorting & Credit Logic) */}
+                        {/* Wallets (Accordion UI) */}
                         <div className="pt-4 pb-2 md:px-0 md:pt-0">
                           <div className="px-5 mb-2 md:px-0 flex justify-between items-center">
                             <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-gray-800 pl-2">
                                 กระเป๋าเงิน
                             </span>
                             <div className="flex gap-2">
-                                <button onClick={() => setIsReordering(!isReordering)} className={`p-1.5 rounded-full ${isReordering ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
-                                    <ArrowRightLeft size={14}/>
-                                </button>
                                 {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-full flex items-center gap-1 border border-gray-300"><Plus size={10} /> เพิ่ม</button>)}
                             </div>
                           </div>
-                          <div className="flex gap-3 overflow-x-auto px-5 pb-2 md:px-0 no-scrollbar snap-x cursor-grab active:cursor-grabbing md:grid md:grid-cols-3 md:overflow-visible">
+                          <div className="flex gap-3 overflow-x-auto px-5 pb-2 md:px-0 no-scrollbar snap-x cursor-grab active:cursor-grabbing md:flex-wrap">
                             {visibleWallets.length === 0 ? (
-                              <div className="w-full md:col-span-3 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
+                              <div className="w-full md:w-full h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
                             ) : visibleWallets.map((wallet, index) => {
                               const isActive = wallet.id === activeWalletId;
                               const balance = calculateBalance(wallet);
                               const dailyChange = calculateDailyChange(wallet.id);
-                              
                               const isNegative = balance < 0;
-                              const balanceColor = isNegative ? 'text-red-200' : 'text-white';
+                              const ownerProfile = appProfiles[wallet.owner]; 
 
                               return (
                                 <div 
                                     key={wallet.id} 
-                                    className="relative group flex-shrink-0 md:w-full"
+                                    className={`relative flex-shrink-0 transition-all duration-300 ease-out ${isActive ? 'w-48 md:w-64' : 'w-14 md:w-16'}`}
                                 >
-                                  <button disabled={isReordering} onClick={() => setActiveWalletId(wallet.id)} className={`relative w-40 md:w-full h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' : 'scale-95 opacity-80 hover:opacity-100 hover:scale-[0.98]'}`} style={{ backgroundColor: wallet.color, color: 'white' }}>
-                                    <div className="flex justify-between items-start mb-1"><span className="text-xl drop-shadow-sm">{wallet.icon}</span>{isActive && <span className="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold backdrop-blur-sm">ACTIVE</span>}</div>
-                                    <div className="mt-auto">
-                                      <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90 flex items-center gap-1">{wallet.name}</p>
-                                      <div className="flex items-baseline gap-1">
-                                        <div className="flex flex-col">
-                                            <span className={`text-lg font-bold tracking-tight ${balanceColor}`}>{privacyMode ? '••••••' : balance.toLocaleString()}</span>
+                                  <button 
+                                    onClick={() => setActiveWalletId(wallet.id)} 
+                                    className={`relative h-24 rounded-2xl shadow-md overflow-hidden transition-all w-full ${isActive ? 'p-3 ring-2 ring-offset-1 ring-gray-400' : 'p-0 opacity-80 hover:opacity-100 hover:scale-105'}`} 
+                                    style={{ backgroundColor: wallet.color, color: 'white' }}
+                                  >
+                                    {/* Active State Content */}
+                                    {isActive ? (
+                                      <>
+                                        <div className="flex justify-between items-start mb-1">
+                                          <span className="text-2xl drop-shadow-sm">{wallet.icon}</span>
+                                          {ownerProfile && <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs border border-white/30" title={ownerProfile.name}>{ownerProfile.icon}</div>}
                                         </div>
-                                        {!privacyMode && dailyChange !== 0 && (
-                                          <span className={`text-[9px] ${isActive ? 'text-white/70' : 'text-gray-200'}`}>
-                                            ({dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()})
-                                          </span>
-                                        )}
+                                        <div className="mt-auto text-left">
+                                          <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90">{wallet.name}</p>
+                                          <div className="flex items-baseline gap-1">
+                                            <span className={`text-lg font-bold tracking-tight ${isNegative ? 'text-red-200' : 'text-white'}`}>{privacyMode ? '••••••' : balance.toLocaleString()}</span>
+                                            {!privacyMode && dailyChange !== 0 && (
+                                              <span className={`text-[9px] text-white/70`}>({dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()})</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {currentProfile !== 'family' && <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30 cursor-pointer"><Settings size={10} /></div>}
+                                        <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>
+                                      </>
+                                    ) : (
+                                      /* Inactive State Content */
+                                      <div className="flex flex-col items-center justify-center h-full w-full gap-1">
+                                        <span className="text-xl drop-shadow-sm">{wallet.icon}</span>
+                                        {ownerProfile && <div className="absolute top-1 right-1 w-3 h-3 rounded-full bg-white/30 flex items-center justify-center text-[8px]">{ownerProfile.icon}</div>}
                                       </div>
-                                    </div>
-                                    {isActive && !isReordering && <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>}
-                                    
-                                    {/* Reorder Arrows Overlay */}
-                                    {isReordering && (
-                                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center gap-3 z-20 rounded-2xl animate-in fade-in">
-                                            {index > 0 && <button onClick={(e) => {e.stopPropagation(); handleMoveWallet(index, -1)}} className="p-2 bg-white rounded-full text-gray-800 shadow-lg active:scale-95"><ChevronLeft size={16}/></button>}
-                                            {index < visibleWallets.length - 1 && <button onClick={(e) => {e.stopPropagation(); handleMoveWallet(index, 1)}} className="p-2 bg-white rounded-full text-gray-800 shadow-lg active:scale-95"><ChevronRight size={16}/></button>}
-                                        </div>
                                     )}
                                   </button>
-                                  {isActive && currentProfile !== 'family' && !isReordering && <button onClick={() => openEditWallet(wallet)} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30"><Settings size={10} /></button>}
                                 </div>
                               );
                             })}
@@ -1416,7 +1331,7 @@ export default function App() {
                   {showCalculator && (<div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><CalculatorPad onConfirm={(val) => { setTransactionForm(p => ({...p, amount: val})); setShowCalculator(false); }} onClose={() => setShowCalculator(false)} /></div>)}
                   
                   <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">วันที่</label><input type="date" value={transactionForm.date} onChange={(e) => setTransactionForm(p => ({...p, date: e.target.value}))} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400"/></div>
-                  <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">แฮชแท็ก (เว้นวรรคเพื่อแยก)</label><input type="text" value={transactionForm.tags} onChange={(e) => setTransactionForm(p => ({...p, tags: e.target.value}))} placeholder="#เที่ยว #กาแฟ" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400"/></div>
+                  <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">บันทึกช่วยจำ / Memo</label><input type="text" value={transactionForm.tags} onChange={(e) => setTransactionForm(p => ({...p, tags: e.target.value}))} placeholder="เช่น ค่าซักผ้า, ค่าปรับจราจร" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400"/></div>
                   {transactionForm.type === 'transfer' ? (
                     <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">ไปยังกระเป๋า</label><div className="space-y-2 max-h-40 overflow-y-auto">{wallets.filter(w => w.id !== activeWalletId).map(w => {
                         const ownerProfile = appProfiles[w.owner]; 
@@ -1441,7 +1356,35 @@ export default function App() {
                         );
                     })}</div></div>
                   ) : (
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">หมวดหมู่</label><div className="grid grid-cols-4 gap-3">{(transactionForm.type === 'expense' ? expenseCategories : incomeCategories).map(cat => (<button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div></div>
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">หมวดหมู่</label>
+                          <button onClick={() => setTransactionForm(p => ({...p, isCustomCategory: !p.isCustomCategory, category: ''}))} className="text-[10px] text-blue-600 font-bold flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full hover:bg-blue-100 transition-colors">
+                              {transactionForm.isCustomCategory ? <List size={12}/> : <Pencil size={12}/>}
+                              {transactionForm.isCustomCategory ? 'เลือกจากรายการ' : 'อื่นๆ (ระบุเอง)'}
+                          </button>
+                      </div>
+                      
+                      {transactionForm.isCustomCategory ? (
+                          <input 
+                              type="text" 
+                              value={transactionForm.category} 
+                              onChange={(e) => setTransactionForm(p => ({...p, category: e.target.value}))} 
+                              placeholder="ระบุหมวดหมู่เอง (เช่น ซักผ้า)" 
+                              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-blue-500 animate-in fade-in slide-in-from-top-2"
+                              autoFocus
+                          />
+                      ) : (
+                          <div className="grid grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2">
+                              {(transactionForm.type === 'expense' ? expenseCategories : incomeCategories).map(cat => (
+                                  <button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}>
+                                      <span className="text-2xl">{cat.icon}</span>
+                                      <span className="text-[10px] font-bold">{cat.name}</span>
+                                  </button>
+                              ))}
+                          </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveTransaction} disabled={loading} className={`w-full h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-white ${transactionForm.type === 'expense' ? 'bg-red-600 shadow-red-200' : transactionForm.type === 'transfer' ? 'bg-blue-600 shadow-blue-200' : 'bg-green-600 shadow-green-200'}`}>{loading ? <Loader2 className="animate-spin"/> : (transactionForm.id ? 'บันทึกการแก้ไข' : (transactionForm.type === 'transfer' ? 'โอนเงิน' : 'บันทึก'))}</button></div>
@@ -1449,7 +1392,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ... (Other Modals: PayBill, Wallet, Budget, Wishlist, Event, Profile - Kept same as provided code, omitted here for brevity but assumed present in final file) ... */}
+        {/* ... (Other Modals: PayBill, Wallet, Budget, Wishlist, Event, Profile, QuickMenu... Kept same) ... */}
         {/* MODAL: ADD BILL */}
         {modalMode === 'add-bill' && (
           <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/50">
@@ -1511,7 +1454,6 @@ export default function App() {
                 <div className="flex-1 p-6 space-y-5 overflow-y-auto">
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อกระเป๋า</label><input type="text" value={walletForm.name} onChange={e => setWalletForm({...walletForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น เงินเดือน"/></div>
                   
-                  {/* Removed Credit Card Toggle, Replaced with simple Balance Input */}
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">เงินตั้งต้น (ใส่ลบได้ เช่น -5000)</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00 หรือ -10000"/></div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ธนาคาร (ทางลัด)</label>
