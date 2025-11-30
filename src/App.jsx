@@ -372,6 +372,9 @@ export default function App() {
   const [showCalculator, setShowCalculator] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
   
+  // Reordering State
+  const [isReordering, setIsReordering] = useState(false);
+
   // New State for Month Filter
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
@@ -672,7 +675,7 @@ export default function App() {
           icon: walletForm.icon, 
           color: walletForm.color, 
           owner: walletForm.owner,
-          type: walletForm.type || 'cash',
+          type: 'general', // Default type
           order: wallets.length // New wallets go to end
       };
       if (walletForm.id) {
@@ -1054,16 +1057,11 @@ export default function App() {
                               <div className="w-full md:col-span-3 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
                             ) : visibleWallets.map((wallet, index) => {
                               const isActive = wallet.id === activeWalletId;
-                              const rawBalance = calculateBalance(wallet);
+                              const balance = calculateBalance(wallet);
                               const dailyChange = calculateDailyChange(wallet.id);
                               
-                              // Credit Card Logic: Invert Concept
-                              // Balance < 0 means "Debt" (shown as positive used). 
-                              // User wants to see "How much I owe". 
-                              const isCredit = wallet.type === 'credit';
-                              const displayBalance = isCredit ? Math.abs(rawBalance) : rawBalance;
-                              const displayLabel = isCredit ? 'ยอดใช้ไป (หนี้)' : 'คงเหลือ';
-                              const balanceColor = isCredit ? 'text-red-100' : 'text-white';
+                              const isNegative = balance < 0;
+                              const balanceColor = isNegative ? 'text-red-200' : 'text-white';
 
                               return (
                                 <div 
@@ -1073,11 +1071,10 @@ export default function App() {
                                   <button disabled={false} onClick={() => setActiveWalletId(wallet.id)} className={`relative w-40 md:w-full h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' : 'scale-95 opacity-80 hover:opacity-100 hover:scale-[0.98]'}`} style={{ backgroundColor: wallet.color, color: 'white' }}>
                                     <div className="flex justify-between items-start mb-1"><span className="text-xl drop-shadow-sm">{wallet.icon}</span>{isActive && <span className="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold backdrop-blur-sm">ACTIVE</span>}</div>
                                     <div className="mt-auto">
-                                      <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90 flex items-center gap-1">{isCredit && <CreditCard size={10}/>} {wallet.name}</p>
+                                      <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90 flex items-center gap-1">{wallet.name}</p>
                                       <div className="flex items-baseline gap-1">
                                         <div className="flex flex-col">
-                                            {isCredit && <span className="text-[8px] opacity-75 leading-none mb-0.5">{displayLabel}</span>}
-                                            <span className={`text-lg font-bold tracking-tight ${balanceColor}`}>{privacyMode ? '••••••' : displayBalance.toLocaleString()}</span>
+                                            <span className={`text-lg font-bold tracking-tight ${balanceColor}`}>{privacyMode ? '••••••' : balance.toLocaleString()}</span>
                                         </div>
                                         {!privacyMode && dailyChange !== 0 && (
                                           <span className={`text-[9px] ${isActive ? 'text-white/70' : 'text-gray-200'}`}>
@@ -1440,13 +1437,8 @@ export default function App() {
                 <div className="flex-1 p-6 space-y-5 overflow-y-auto">
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อกระเป๋า</label><input type="text" value={walletForm.name} onChange={e => setWalletForm({...walletForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น เงินเดือน"/></div>
                   
-                  {/* Credit Card Toggle */}
-                  <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-200">
-                      <button onClick={() => setWalletForm({...walletForm, type: 'cash'})} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${walletForm.type === 'cash' ? 'bg-white shadow text-green-700' : 'text-gray-400'}`}>💵 เงินสด/ออมทรัพย์</button>
-                      <button onClick={() => setWalletForm({...walletForm, type: 'credit'})} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${walletForm.type === 'credit' ? 'bg-gray-800 shadow text-white' : 'text-gray-400'}`}>💳 บัตรเครดิต (ใช้ก่อนจ่ายทีหลัง)</button>
-                  </div>
-
-                  <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">{walletForm.type === 'credit' ? 'วงเงิน (หรือหนี้เริ่มต้น)' : 'เงินตั้งต้น'}</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00"/></div>
+                  {/* Removed Credit Card Toggle, Replaced with simple Balance Input */}
+                  <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">เงินตั้งต้น (ใส่ลบได้ เช่น -5000)</label><input type="number" value={walletForm.initialBalance} onChange={e => setWalletForm({...walletForm, initialBalance: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="0.00 หรือ -10000"/></div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ธนาคาร (ทางลัด)</label>
                     <div className="grid grid-cols-4 gap-2">
