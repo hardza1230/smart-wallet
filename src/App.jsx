@@ -880,6 +880,48 @@ export default function App() {
   const handleDeleteQuickMenu = async (id) => {
       if(confirm("ลบเมนูนี้?")) await deleteDoc(doc(db, "quick_menus", id));
   };
+
+  // --- Reorder Logic (Optimistic) ---
+  const handleMoveWallet = async (index, direction) => {
+    if (index + direction < 0 || index + direction >= visibleWallets.length) return;
+
+    // 1. Optimistic Update (Immediate UI Change)
+    const newWallets = [...visibleWallets];
+    const temp = newWallets[index];
+    newWallets[index] = newWallets[index + direction];
+    newWallets[index + direction] = temp;
+    
+    // We update the local state immediately so user sees the change
+    // Note: We need to update the main 'wallets' state carefully
+    // Strategy: Map new visible order back to full list logic (simplified here for visible only context)
+    // For MVP: Just updating 'visibleWallets' won't stick because 'wallets' drives it.
+    // So we force update 'wallets' state locally by mapping IDs.
+    
+    setWallets(prev => {
+        const next = [...prev];
+        // Find indices in main array
+        const idxA = next.findIndex(w => w.id === newWallets[index].id);
+        const idxB = next.findIndex(w => w.id === newWallets[index + direction].id);
+        if(idxA !== -1 && idxB !== -1) {
+            const t = next[idxA];
+            next[idxA] = next[idxB];
+            next[idxB] = t;
+        }
+        return next;
+    });
+
+    // 2. Background Sync to Firestore
+    try {
+        const batch = writeBatch(db);
+        newWallets.forEach((w, idx) => {
+            const ref = doc(db, "wallets", w.id);
+            batch.update(ref, { order: idx });
+        });
+        await batch.commit();
+    } catch(err) {
+        showToast("เกิดข้อผิดพลาดในการจัดลำดับ", "error");
+    }
+  };
   
   return (
     <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${themeColor.bg} text-gray-900 md:items-center md:p-8`}>
@@ -1049,6 +1091,9 @@ export default function App() {
                                 กระเป๋าเงิน
                             </span>
                             <div className="flex gap-2">
+                                <button onClick={() => setIsReordering(!isReordering)} className={`p-1.5 rounded-full ${isReordering ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                                    <ArrowRightLeft size={14}/>
+                                </button>
                                 {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-full flex items-center gap-1 border border-gray-300"><Plus size={10} /> เพิ่ม</button>)}
                             </div>
                           </div>
@@ -1068,7 +1113,7 @@ export default function App() {
                                     key={wallet.id} 
                                     className="relative group flex-shrink-0 md:w-full"
                                 >
-                                  <button disabled={false} onClick={() => setActiveWalletId(wallet.id)} className={`relative w-40 md:w-full h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' : 'scale-95 opacity-80 hover:opacity-100 hover:scale-[0.98]'}`} style={{ backgroundColor: wallet.color, color: 'white' }}>
+                                  <button disabled={isReordering} onClick={() => setActiveWalletId(wallet.id)} className={`relative w-40 md:w-full h-24 p-3 rounded-2xl snap-center transition-all duration-300 text-left overflow-hidden shadow-md ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 scale-100 opacity-100' : 'scale-95 opacity-80 hover:opacity-100 hover:scale-[0.98]'}`} style={{ backgroundColor: wallet.color, color: 'white' }}>
                                     <div className="flex justify-between items-start mb-1"><span className="text-xl drop-shadow-sm">{wallet.icon}</span>{isActive && <span className="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold backdrop-blur-sm">ACTIVE</span>}</div>
                                     <div className="mt-auto">
                                       <p className="text-[9px] uppercase font-bold mb-0.5 truncate pr-2 opacity-90 flex items-center gap-1">{wallet.name}</p>
@@ -1083,9 +1128,17 @@ export default function App() {
                                         )}
                                       </div>
                                     </div>
-                                    {isActive && <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>}
+                                    {isActive && !isReordering && <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>}
+                                    
+                                    {/* Reorder Arrows Overlay */}
+                                    {isReordering && (
+                                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center gap-3 z-20 rounded-2xl animate-in fade-in">
+                                            {index > 0 && <button onClick={(e) => {e.stopPropagation(); handleMoveWallet(index, -1)}} className="p-2 bg-white rounded-full text-gray-800 shadow-lg active:scale-95"><ChevronLeft size={16}/></button>}
+                                            {index < visibleWallets.length - 1 && <button onClick={(e) => {e.stopPropagation(); handleMoveWallet(index, 1)}} className="p-2 bg-white rounded-full text-gray-800 shadow-lg active:scale-95"><ChevronRight size={16}/></button>}
+                                        </div>
+                                    )}
                                   </button>
-                                  {isActive && currentProfile !== 'family' && <button onClick={() => openEditWallet(wallet)} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30"><Settings size={10} /></button>}
+                                  {isActive && currentProfile !== 'family' && !isReordering && <button onClick={() => openEditWallet(wallet)} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30"><Settings size={10} /></button>}
                                 </div>
                               );
                             })}
@@ -1365,7 +1418,28 @@ export default function App() {
                   <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">วันที่</label><input type="date" value={transactionForm.date} onChange={(e) => setTransactionForm(p => ({...p, date: e.target.value}))} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400"/></div>
                   <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">แฮชแท็ก (เว้นวรรคเพื่อแยก)</label><input type="text" value={transactionForm.tags} onChange={(e) => setTransactionForm(p => ({...p, tags: e.target.value}))} placeholder="#เที่ยว #กาแฟ" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400"/></div>
                   {transactionForm.type === 'transfer' ? (
-                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">ไปยังกระเป๋า</label><div className="space-y-2 max-h-40 overflow-y-auto">{wallets.filter(w => w.id !== activeWalletId).map(w => (<button key={w.id} onClick={() => setTransactionForm(p => ({...p, transferToWalletId: w.id}))} className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all bg-white ${transactionForm.transferToWalletId === w.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`}><div className="flex items-center gap-3"><span className="text-xl" style={{color: w.color}}>{w.icon}</span><span className="font-semibold text-sm">{w.name}</span></div>{transactionForm.transferToWalletId === w.id && <div className="bg-blue-100 p-1 rounded-full text-blue-600"><ArrowRight size={14}/></div>}</button>))}</div></div>
+                    <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">ไปยังกระเป๋า</label><div className="space-y-2 max-h-40 overflow-y-auto">{wallets.filter(w => w.id !== activeWalletId).map(w => {
+                        const ownerProfile = appProfiles[w.owner]; 
+                        return (
+                            <button key={w.id} onClick={() => setTransactionForm(p => ({...p, transferToWalletId: w.id}))} className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all bg-white ${transactionForm.transferToWalletId === w.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <span className="text-xl" style={{color: w.color}}>{w.icon}</span>
+                                        {ownerProfile && (
+                                            <span className="absolute -bottom-1 -right-1 text-[10px] bg-gray-100 border border-white rounded-full w-4 h-4 flex items-center justify-center shadow-sm" title={`ของ ${ownerProfile.name}`}>
+                                                {ownerProfile.icon}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-left">
+                                        <span className="font-semibold text-sm block text-gray-800">{w.name}</span>
+                                        <span className="text-[10px] text-gray-400 block -mt-0.5">ของ {ownerProfile?.name || 'ไม่ระบุ'}</span>
+                                    </div>
+                                </div>
+                                {transactionForm.transferToWalletId === w.id && <div className="bg-blue-100 p-1 rounded-full text-blue-600"><ArrowRight size={14}/></div>}
+                            </button>
+                        );
+                    })}</div></div>
                   ) : (
                     <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-3">หมวดหมู่</label><div className="grid grid-cols-4 gap-3">{(transactionForm.type === 'expense' ? expenseCategories : incomeCategories).map(cat => (<button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div></div>
                   )}
