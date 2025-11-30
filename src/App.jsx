@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake, UserCog, Calendar, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List, GripVertical, Coffee, ShoppingBag, CreditCard, Pencil } from 'lucide-react';
+import { Save, Wallet, Plus, X, TrendingUp, TrendingDown, Settings, ArrowRight, Activity, ArrowRightLeft, Target, Zap, AlertCircle, CheckCircle2, Edit3, Loader2, Trash2, BarChart3, Home, PieChart, CheckSquare, Share2, UserPlus, Flag, RefreshCw, Undo2, CalendarClock, Bell, Palette, BookOpen, Calculator, Delete, CalendarHeart, ThumbsUp, ThumbsDown, Plane, Utensils, MapPin, Gift, HeartHandshake, UserCog, Calendar, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, List, GripVertical, Coffee, ShoppingBag, CreditCard, Pencil, SlidersHorizontal } from 'lucide-react';
 
 // --- Firebase Config & Init ---
 import { initializeApp } from "firebase/app";
@@ -70,29 +70,30 @@ const colorsList = [
   { id: 'black', class: 'from-gray-800 to-gray-950', hex: '#0f172a', bg: 'bg-gray-100', text: 'text-gray-900', accent: 'bg-gray-900' },
 ];
 
-const expenseCategories = [
-  { id: 'food', name: 'อาหาร', icon: '🍔', color: '#ef4444' },
-  { id: 'travel', name: 'เดินทาง', icon: '🚕', color: '#3b82f6' },
-  { id: 'shop', name: 'ช้อปปิ้ง', icon: '🛍️', color: '#a855f7' },
-  { id: 'bill', name: 'บิล/น้ำไฟ', icon: '🧾', color: '#eab308' },
-  { id: 'home', name: 'ของใช้บ้าน', icon: '🏠', color: '#14b8a6' },
-  { id: 'health', name: 'สุขภาพ', icon: '💊', color: '#ef4444' },
-  { id: 'beauty', name: 'ความงาม', icon: '💅', color: '#f43f5e' },
-  { id: 'ent', name: 'บันเทิง', icon: '🍿', color: '#ec4899' },
-  { id: 'pet', name: 'สัตว์เลี้ยง', icon: '🐶', color: '#f97316' },
-  { id: 'sub', name: 'Subscription', icon: '📺', color: '#6366f1' },
-  { id: 'donate', name: 'บริจาค', icon: '🙏', color: '#8b5cf6' },
-  { id: 'gadget', name: 'IT/Gadget', icon: '📱', color: '#3b82f6' },
-  { id: 'other', name: 'อื่นๆ', icon: '✨', color: '#64748b' },
+// Default categories for seeding
+const defaultExpenseCategories = [
+  { name: 'อาหาร', icon: '🍔', color: '#ef4444' },
+  { name: 'เดินทาง', icon: '🚕', color: '#3b82f6' },
+  { name: 'ช้อปปิ้ง', icon: '🛍️', color: '#a855f7' },
+  { name: 'บิล/น้ำไฟ', icon: '🧾', color: '#eab308' },
+  { name: 'ของใช้บ้าน', icon: '🏠', color: '#14b8a6' },
+  { name: 'สุขภาพ', icon: '💊', color: '#ef4444' },
+  { name: 'ความงาม', icon: '💅', color: '#f43f5e' },
+  { name: 'บันเทิง', icon: '🍿', color: '#ec4899' },
+  { name: 'สัตว์เลี้ยง', icon: '🐶', color: '#f97316' },
+  { name: 'Subscription', icon: '📺', color: '#6366f1' },
+  { name: 'บริจาค', icon: '🙏', color: '#8b5cf6' },
+  { name: 'IT/Gadget', icon: '📱', color: '#3b82f6' },
+  { name: 'อื่นๆ', icon: '✨', color: '#64748b' },
 ];
 
-const incomeCategories = [
-  { id: 'salary', name: 'เงินเดือน', icon: '💰' },
-  { id: 'bonus', name: 'โบนัส', icon: '🎁' },
-  { id: 'sell', name: 'ขายของ', icon: '📈' },
-  { id: 'gift', name: 'ได้เงิน', icon: '🧧' },
-  { id: 'invest', name: 'ลงทุน', icon: '💎' },
-  { id: 'refund', name: 'คืนเงิน', icon: '↩️' },
+const defaultIncomeCategories = [
+  { name: 'เงินเดือน', icon: '💰', color: '#10b981' },
+  { name: 'โบนัส', icon: '🎁', color: '#8b5cf6' },
+  { name: 'ขายของ', icon: '📈', color: '#f59e0b' },
+  { name: 'ได้เงิน', icon: '🧧', color: '#ef4444' },
+  { name: 'ลงทุน', icon: '💎', color: '#3b82f6' },
+  { name: 'คืนเงิน', icon: '↩️', color: '#6366f1' },
 ];
 
 const defaultProfiles = {
@@ -149,13 +150,12 @@ const SimpleDonutChart = ({ income, expense }) => {
   );
 };
 
-// --- NEW FEATURE: Net Worth Trend Line Chart ---
 const NetWorthLineChart = ({ transactions, wallets }) => {
   const [dataPoints, setDataPoints] = useState([]);
 
   useEffect(() => {
     if (!wallets.length) return;
-    
+
     const today = new Date();
     const months = [];
     for (let i = 5; i >= 0; i--) {
@@ -322,6 +322,11 @@ export default function App() {
   const [quickMenus, setQuickMenus] = useState([]);
   const [appProfiles, setAppProfiles] = useState(defaultProfiles);
   
+  // Dynamic Categories State
+  const [expenseCategories, setExpenseCategories] = useState([]);
+  const [incomeCategories, setIncomeCategories] = useState([]);
+  const [categoryForm, setCategoryForm] = useState({ id: null, name: '', icon: '🍔', color: '#ef4444', type: 'expense' });
+  
   const [activeWalletId, setActiveWalletId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentProfile, setCurrentProfile] = useState('hart');
@@ -394,6 +399,27 @@ export default function App() {
         setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // Categories (Custom)
+    const unsubCats = onSnapshot(collection(db, "custom_categories"), async (snap) => {
+        if (snap.empty && !snap.metadata.fromCache) {
+             // Initialize Default Categories
+             const batch = writeBatch(db);
+             defaultExpenseCategories.forEach(c => {
+                 const ref = doc(collection(db, "custom_categories"));
+                 batch.set(ref, { ...c, type: 'expense', createdAt: Date.now() });
+             });
+             defaultIncomeCategories.forEach(c => {
+                 const ref = doc(collection(db, "custom_categories"));
+                 batch.set(ref, { ...c, type: 'income', createdAt: Date.now() });
+             });
+             await batch.commit();
+        } else {
+             const allCats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+             setExpenseCategories(allCats.filter(c => c.type === 'expense').sort((a,b) => (a.createdAt||0) - (b.createdAt||0)));
+             setIncomeCategories(allCats.filter(c => c.type === 'income').sort((a,b) => (a.createdAt||0) - (b.createdAt||0)));
+        }
+    });
+
     const unsubQM = onSnapshot(collection(db, "quick_menus"), (snap) => {
         if (snap.empty) {
             defaultQuickMenus.forEach(m => addDoc(collection(db, "quick_menus"), m));
@@ -412,7 +438,7 @@ export default function App() {
         else setDoc(doc.ref, defaultProfiles);
     });
 
-    return () => { unsubW(); unsubT(); unsubQM(); unsubB(); unsubBills(); unsubDebts(); unsubWish(); unsubEvents(); unsubProfiles(); };
+    return () => { unsubW(); unsubT(); unsubCats(); unsubQM(); unsubB(); unsubBills(); unsubDebts(); unsubWish(); unsubEvents(); unsubProfiles(); };
   }, []);
 
   const visibleWallets = wallets.filter(w => currentProfile === 'family' ? true : (w.owner === currentProfile || !w.owner));
@@ -569,7 +595,6 @@ export default function App() {
     }
 
     const dateDisplay = new Date(timestamp).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
-    // Tags is now Memo/Note
     const note = tags; 
     const numericAmount = parseFloat(amount);
 
@@ -634,11 +659,10 @@ export default function App() {
           icon: walletForm.icon, 
           color: walletForm.color, 
           owner: walletForm.owner,
-          type: 'general', // Default type
-          order: wallets.length // New wallets go to end
+          type: 'general', 
+          order: wallets.length 
       };
       if (walletForm.id) {
-          // If editing, preserve order
           delete walletData.order;
           await updateDoc(doc(db, "wallets", walletForm.id), walletData);
       }
@@ -654,18 +678,12 @@ export default function App() {
     if (confirm("⚠️ ลบกระเป๋านี้จริงหรือไม่? ข้อมูลธุรกรรมทั้งหมดในกระเป๋านี้จะถูกลบด้วย!")) {
         setLoading(true);
         try {
-            // 1. Delete transactions first (Safety cleanup)
             const q = query(collection(db, "transactions"), where("walletId", "==", walletId));
             const snapshot = await getDocs(q);
             const batch = writeBatch(db);
             snapshot.docs.forEach((doc) => { batch.delete(doc.ref); });
-            
-            // 2. Delete wallet
             batch.delete(doc(db, "wallets", walletId));
-            
             await batch.commit();
-            
-            // 3. Reset state
             if (activeWalletId === walletId) setActiveWalletId(null);
             setModalMode(null);
             showToast("ลบกระเป๋าเรียบร้อยแล้ว");
@@ -690,6 +708,25 @@ export default function App() {
         setModalMode(null);
       } catch (error) { showToast("เกิดข้อผิดพลาด: " + error.message, "error"); } finally { setLoading(false); }
     }
+  };
+
+  // --- CATEGORY MANAGEMENT ---
+  const openManageCategory = () => { setCategoryForm({ id: null, name: '', icon: '✨', color: '#64748b', type: 'expense' }); setModalMode('manage-categories'); };
+  const handleSaveCategory = async () => {
+      if (!categoryForm.name) return showToast("กรุณาใส่ชื่อหมวดหมู่", "error");
+      setLoading(true);
+      try {
+          if (categoryForm.id) {
+              await updateDoc(doc(db, "custom_categories", categoryForm.id), categoryForm);
+          } else {
+              await addDoc(collection(db, "custom_categories"), { ...categoryForm, createdAt: Date.now() });
+          }
+          setCategoryForm(prev => ({ ...prev, id: null, name: '', icon: '✨' })); // Clear but keep type/color
+          showToast("บันทึกหมวดหมู่แล้ว");
+      } catch(e) { showToast(e.message, "error"); } finally { setLoading(false); }
+  };
+  const handleDeleteCategory = async (id) => {
+      if(confirm("ลบหมวดหมู่นี้?")) await deleteDoc(doc(db, "custom_categories", id));
   };
 
   const handleSaveBudget = async () => {
@@ -877,6 +914,11 @@ export default function App() {
              <PieChart size={20} />
              <span className="absolute left-14 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">รายงาน</span>
            </button>
+           
+           <button onClick={() => openManageCategory()} className={`p-3 rounded-2xl transition-all group relative text-gray-400 hover:bg-white hover:shadow-md hover:text-gray-600`}>
+             <SlidersHorizontal size={20} />
+             <span className="absolute left-14 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">ปรับแต่ง</span>
+           </button>
 
            <div className="mt-auto flex flex-col gap-4">
               <button onClick={() => setPrivacyMode(!privacyMode)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-all">{privacyMode ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
@@ -896,6 +938,7 @@ export default function App() {
              </div>
            </div>
            <div className="flex items-center gap-2">
+             <button onClick={openManageCategory} className="text-gray-400 hover:text-gray-600 p-1"><SlidersHorizontal size={18}/></button>
              <button onClick={() => setPrivacyMode(!privacyMode)} className="text-gray-400 hover:text-gray-600 p-1">{privacyMode ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
              <div className="flex bg-gray-100 p-1 rounded-full">
                {Object.keys(appProfiles).map((key) => (
@@ -1371,31 +1414,19 @@ export default function App() {
                     <div>
                       <div className="flex justify-between items-center mb-3">
                           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">หมวดหมู่</label>
-                          <button onClick={() => setTransactionForm(p => ({...p, isCustomCategory: !p.isCustomCategory, category: ''}))} className="text-[10px] text-blue-600 font-bold flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full hover:bg-blue-100 transition-colors">
-                              {transactionForm.isCustomCategory ? <List size={12}/> : <Pencil size={12}/>}
-                              {transactionForm.isCustomCategory ? 'เลือกจากรายการ' : 'อื่นๆ (ระบุเอง)'}
+                          <button onClick={() => openManageCategory()} className="text-[10px] text-gray-400 flex items-center gap-1 hover:text-gray-600">
+                              <Settings size={10}/> จัดการ
                           </button>
                       </div>
                       
-                      {transactionForm.isCustomCategory ? (
-                          <input 
-                              type="text" 
-                              value={transactionForm.category} 
-                              onChange={(e) => setTransactionForm(p => ({...p, category: e.target.value}))} 
-                              placeholder="ระบุหมวดหมู่เอง (เช่น ซักผ้า)" 
-                              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 outline-none focus:border-blue-500 animate-in fade-in slide-in-from-top-2"
-                              autoFocus
-                          />
-                      ) : (
-                          <div className="grid grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2">
-                              {(transactionForm.type === 'expense' ? expenseCategories : incomeCategories).map(cat => (
-                                  <button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}>
-                                      <span className="text-2xl">{cat.icon}</span>
-                                      <span className="text-[10px] font-bold">{cat.name}</span>
-                                  </button>
-                              ))}
-                          </div>
-                      )}
+                      <div className="grid grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2">
+                          {(transactionForm.type === 'expense' ? expenseCategories : incomeCategories).map(cat => (
+                              <button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}>
+                                  <span className="text-2xl">{cat.icon}</span>
+                                  <span className="text-[10px] font-bold">{cat.name}</span>
+                              </button>
+                          ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1533,6 +1564,75 @@ export default function App() {
                             </div>
                         ))}
                     </div>
+                </div>
+            </div>
+          </div>
+        )}
+        
+        {/* MODAL: MANAGE CATEGORIES */}
+        {modalMode === 'manage-categories' && (
+          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/50">
+            <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">ปรับแต่งหมวดหมู่</h2><div className="w-10"></div></div>
+                <div className="flex-1 p-6 overflow-y-auto">
+                    
+                    {/* Add/Edit Form */}
+                    <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-200">
+                        <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase">{categoryForm.id ? 'แก้ไข' : 'เพิ่มใหม่'}</h3>
+                        
+                        <div className="flex gap-2 mb-3">
+                             <button onClick={() => setCategoryForm({...categoryForm, type: 'expense'})} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${categoryForm.type === 'expense' ? 'bg-red-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}>รายจ่าย</button>
+                             <button onClick={() => setCategoryForm({...categoryForm, type: 'income'})} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${categoryForm.type === 'income' ? 'bg-green-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}>รายรับ</button>
+                        </div>
+
+                        <div className="flex gap-3 mb-3">
+                             <div className="relative group">
+                                <div className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-lg text-xl">{categoryForm.icon}</div>
+                                {/* Simple Icon Picker (Scrollable) */}
+                                <div className="absolute top-12 left-0 w-64 bg-white shadow-xl rounded-xl p-2 grid grid-cols-6 gap-1 z-50 hidden group-hover:grid border border-gray-100 h-40 overflow-y-auto">
+                                     {iconsList.map(i => <button key={i} onClick={() => setCategoryForm({...categoryForm, icon: i})} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded">{i}</button>)}
+                                </div>
+                             </div>
+                             <input type="text" value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} placeholder="ชื่อหมวดหมู่" className="flex-1 bg-white border border-gray-200 rounded-lg px-3 text-sm outline-none"/>
+                        </div>
+                        <button onClick={handleSaveCategory} disabled={loading} className="w-full bg-gray-800 text-white py-2 rounded-lg text-xs font-bold">บันทึก</button>
+                    </div>
+
+                    {/* List */}
+                    <div>
+                        <h3 className="text-xs font-bold text-red-500 mb-2 uppercase">รายจ่าย</h3>
+                        <div className="grid grid-cols-1 gap-2 mb-6">
+                            {expenseCategories.map(cat => (
+                                <div key={cat.id} className="flex justify-between items-center p-2 bg-white border border-gray-100 rounded-lg">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-lg">{cat.icon}</span>
+                                        <span className="text-sm text-gray-700">{cat.name}</span>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setCategoryForm(cat)} className="p-1.5 text-gray-300 hover:text-blue-500"><Edit3 size={14}/></button>
+                                        <button onClick={() => handleDeleteCategory(cat.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <h3 className="text-xs font-bold text-green-500 mb-2 uppercase">รายรับ</h3>
+                        <div className="grid grid-cols-1 gap-2">
+                            {incomeCategories.map(cat => (
+                                <div key={cat.id} className="flex justify-between items-center p-2 bg-white border border-gray-100 rounded-lg">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-lg">{cat.icon}</span>
+                                        <span className="text-sm text-gray-700">{cat.name}</span>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setCategoryForm(cat)} className="p-1.5 text-gray-300 hover:text-blue-500"><Edit3 size={14}/></button>
+                                        <button onClick={() => handleDeleteCategory(cat.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                 </div>
             </div>
           </div>
