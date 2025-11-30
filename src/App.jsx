@@ -1011,15 +1011,18 @@ export default function App() {
                                 {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-full flex items-center gap-1 border border-gray-300"><Plus size={10} /> เพิ่ม</button>)}
                             </div>
                           </div>
-                          <div className="grid grid-cols-1 gap-3 px-5 pb-2 md:px-0 md:grid-cols-2">
+                          <div className="grid grid-cols-2 gap-2 px-5 pb-2 md:px-0 md:grid-cols-2 md:gap-3">
                             {visibleWallets.length === 0 ? (
-                              <div className="w-full h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
+                              <div className="w-full md:col-span-2 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
                             ) : visibleWallets.map((wallet, index) => {
                               const isActive = wallet.id === activeWalletId;
                               const balance = calculateBalance(wallet);
                               const dailyChange = calculateDailyChange(wallet.id);
+                              
                               const isNegative = balance < 0;
+                              const balanceColor = isNegative ? 'text-red-200' : 'text-white';
                               const ownerProfile = appProfiles[wallet.owner]; 
+                              const isCredit = wallet.type === 'credit'; // Kept for legacy/icon logic but display is standard
 
                               return (
                                 <div 
@@ -1028,25 +1031,27 @@ export default function App() {
                                 >
                                   <button 
                                     onClick={() => setActiveWalletId(wallet.id)} 
-                                    className={`relative w-full h-24 rounded-2xl shadow-md overflow-hidden transition-all flex items-center justify-between px-4 ${isActive ? 'ring-2 ring-offset-1 ring-gray-400' : 'opacity-90 hover:opacity-100 hover:scale-[1.02]'}`} 
+                                    className={`relative w-full h-auto min-h-[80px] rounded-2xl shadow-md overflow-hidden transition-all flex flex-col justify-center items-start p-3 md:h-24 md:flex-row md:items-center md:justify-between md:px-4 ${isActive ? 'ring-2 ring-offset-1 ring-gray-400' : 'opacity-90 hover:opacity-100 hover:scale-[1.02]'}`} 
                                     style={{ backgroundColor: wallet.color, color: 'white' }}
                                   >
-                                    <div className="flex items-center gap-4 z-10">
-                                        <div className="relative">
-                                            <span className="text-3xl drop-shadow-md">{wallet.icon}</span>
-                                            {ownerProfile && <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center text-xs border border-gray-100 shadow-sm" title={ownerProfile.name}>{ownerProfile.icon}</div>}
+                                    <div className="flex items-center gap-2 md:gap-4 z-10 w-full">
+                                        <div className="relative shrink-0">
+                                            <span className="text-2xl md:text-3xl drop-shadow-md">{wallet.icon}</span>
+                                            {ownerProfile && <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white flex items-center justify-center text-[8px] md:text-xs border border-gray-100 shadow-sm text-gray-800" title={ownerProfile.name}>{ownerProfile.icon}</div>}
                                         </div>
-                                        <div className="text-left">
-                                            <p className="text-xs uppercase font-bold opacity-80 mb-0.5">{wallet.name}</p>
-                                            <p className="text-[10px] opacity-60">ของ {ownerProfile?.name}</p>
+                                        <div className="text-left min-w-0 flex-1">
+                                            <p className="text-[10px] md:text-xs uppercase font-bold opacity-90 mb-0.5 truncate flex items-center gap-1">
+                                              <span className="truncate">{wallet.name}</span>
+                                            </p>
+                                            <p className="text-[9px] md:text-[10px] opacity-70 truncate">ของ {ownerProfile?.name}</p>
                                         </div>
                                     </div>
                                     
-                                    <div className="text-right z-10">
-                                        <span className={`text-xl font-bold tracking-tight block ${isNegative ? 'text-red-200' : 'text-white'}`}>{privacyMode ? '••••••' : balance.toLocaleString()}</span>
+                                    <div className="text-left md:text-right z-10 mt-2 md:mt-0 w-full">
+                                        <span className={`text-base md:text-xl font-bold tracking-tight block ${balanceColor}`}>{privacyMode ? '••••••' : balance.toLocaleString()}</span>
                                         {!privacyMode && dailyChange !== 0 && (
-                                          <span className="text-[10px] opacity-80 block">
-                                            {dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()} วันนี้
+                                          <span className={`text-[9px] block ${isActive ? 'text-white/80' : 'text-gray-200'}`}>
+                                            {dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()}
                                           </span>
                                         )}
                                     </div>
