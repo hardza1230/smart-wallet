@@ -19,20 +19,23 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // --- Static Data ---
-const iconsList = [
-  '👨🏻', '👩🏻', '👦🏻', '👧🏻', '👴🏻', '👵🏻', 
-  '👱🏻‍♂️', '👱🏻‍♀️', '🧔🏻‍♂️', '🧕🏻', '👼🏻', '👫', '🏠', 
-  '💵', '💳', '🏦', '🐷', '💎', '💰', '🪙', '💸', 
-  '🚗', '🛵', '✈️', '🚀', '🚤', '🚂', '🚌',
-  '🍔', '🍕', '🍜', '☕', '🍺', '🍷', '🍿', '🍰', '🍎', '🥦', '🥩',
-  '🛍️', '👠', '👔', '🧢', '💍', '⌚', '🕶️', '🎒',
-  '💻', '📱', '📷', '🎧', '🎮', '🔋', '💡', '🔌',
-  '🏥', '💊', '💪', '🧘', '⚽', '🏀', '🎾', '⛳', '🏊',
-  '🐶', '🐱', '🐹', '🐰', '🐠', '🪴', '🌻', '🌲',
-  '📚', '🎓', '✏️', '🎨', '🎸', '🎤', '🎬', '🎫',
-  '👶', '🎁', '🧸', '🎉', '🕯️', '🧼', '🧻', '🧹',
-  '❤️', '⭐', '🔥', '💧', '⚡', '🌤️', '🌙', '🔒'
-];
+const iconCategories = {
+  'คน': ['👨🏻', '👩🏻', '👦🏻', '👧🏻', '👴🏻', '👵🏻', '👱🏻‍♂️', '👱🏻‍♀️', '🧔🏻‍♂️', '🧕🏻', '👼🏻', '👫'],
+  'บ้าน & สถานที่': ['🏠', '🏦', '🏥'],
+  'เงินและการเงิน': ['💵', '💳', '🐷', '💎', '💰', '🪙', '💸'],
+  'ยานพาหนะ': ['🚗', '🛵', '✈️', '🚀', '🚤', '🚂', '🚌'],
+  'อาหาร & เครื่องดื่ม': ['🍔', '🍕', '🍜', '☕', '🍺', '🍷', '🍿', '🍰', '🍎', '🥦', '🥩'],
+  'ช้อปปิ้ง': ['🛍️', '👠', '👔', '🧢', '💍', '⌚', '🕶️', '🎒'],
+  'เทคโนโลยี': ['💻', '📱', '📷', '🎧', '🎮', '🔋', '💡', '🔌'],
+  'สุขภาพ & กีฬา': ['🏥', '💊', '💪', '🧘', '⚽', '🏀', '🎾', '⛳', '🏊'],
+  'สัตว์เลี้ยง': ['🐶', '🐱', '🐹', '🐰', '🐠'],
+  'ธรรมชาติ': ['🪴', '🌻', '🌲'],
+  'การศึกษา': ['📚', '🎓', '✏️', '🎨'],
+  'บันเทิง': ['🎸', '🎤', '🎬', '🎫'],
+  'อื่นๆ': ['👶', '🎁', '🧸', '🎉', '🕯️', '🧼', '🧻', '🧹', '❤️', '⭐', '🔥', '💧', '⚡', '🌤️', '🌙', '🔒']
+};
+
+const iconsList = Object.values(iconCategories).flat();
 
 const bankPresets = [
   { name: 'KBank', color: '#138f2d', icon: 'K' },
@@ -1109,9 +1112,9 @@ export default function App() {
                                 {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 border-0 font-bold shadow-md hover:shadow-lg transition-all"><Plus size={14} /> สร้างใหม่</button>)}
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 px-5 pb-4 md:px-0 md:grid-cols-2 md:gap-4">
+                          <div className="grid grid-cols-2 gap-2 px-5 pb-4 md:px-0 md:grid-cols-4 md:gap-3 lg:gap-4">
                             {visibleWallets.length === 0 ? (
-                              <div className="w-full md:col-span-2 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
+                              <div className="w-full md:col-span-4 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
                             ) : visibleWallets.map((wallet, index) => {
                               const isActive = wallet.id === activeWalletId;
                               const balance = calculateBalance(wallet);
@@ -1128,39 +1131,34 @@ export default function App() {
                                 >
                                   <button 
                                     onClick={() => setActiveWalletId(wallet.id)} 
-                                    className={`relative w-full h-auto min-h-[100px] rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between p-4 md:h-28 md:flex-row md:items-center md:justify-between md:px-5 ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 shadow-lg scale-105' : 'shadow-md opacity-90 hover:opacity-100 hover:shadow-lg hover:scale-[1.02]'}`} 
+                                    className={`relative w-full h-auto min-h-[75px] rounded-xl overflow-hidden transition-all duration-300 flex flex-col justify-between p-2.5 md:min-h-[85px] md:p-2.5 lg:p-3 ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 shadow-md scale-105' : 'shadow-sm opacity-90 hover:opacity-100 hover:shadow-md hover:scale-[1.02]'}`} 
                                     style={{ backgroundColor: wallet.color, color: 'white' }}
                                   >
                                     {/* Top Section: Icon & Name */}
-                                    <div className="flex items-center gap-3 z-10 w-full">
+                                    <div className="flex items-center gap-2 z-10 w-full">
                                         <div className="relative flex-shrink-0">
-                                            <span className="text-4xl drop-shadow-md">{wallet.icon}</span>
-                                            {ownerProfile && <div className="absolute -bottom-2 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center text-xs border border-gray-100 shadow-sm text-gray-800 font-bold">{ownerProfile.icon}</div>}
+                                            <span className="text-3xl drop-shadow-md">{wallet.icon}</span>
                                         </div>
-                                        <div className="text-left min-w-0">
-                                            <p className="text-xs uppercase font-bold opacity-90 leading-tight">{wallet.name}</p>
-                                            <p className="text-[8px] opacity-70">ของ {ownerProfile?.name || 'Unknown'}</p>
+                                        <div className="text-left min-w-0 flex-1">
+                                            <p className="text-[9px] uppercase font-bold opacity-90 leading-tight">{wallet.name}</p>
+                                            <p className="text-[7px] opacity-70 leading-none">ของ {ownerProfile?.name || 'Unknown'}</p>
                                         </div>
                                     </div>
                                     
                                     {/* Bottom Section: Balance */}
-                                    <div className="text-right z-10 mt-3 md:mt-0">
-                                        <span className={`text-2xl font-bold tracking-tight block leading-tight ${balanceColor}`}>{privacyMode ? '••••••' : `฿${balance.toLocaleString()}`}</span>
+                                    <div className="text-right z-10 mt-1.5">
+                                        <span className={`text-lg font-bold tracking-tight block leading-tight ${balanceColor}`}>{privacyMode ? '••••••' : `฿${balance.toLocaleString()}`}</span>
                                         {!privacyMode && dailyChange !== 0 && (
-                                          <span className={`text-[9px] mt-0.5 block font-semibold ${dailyChange > 0 ? 'text-green-100' : 'text-red-100'}`}>
-                                            {dailyChange > 0 ? '▲ +' : '▼ '}{Math.abs(dailyChange).toLocaleString()} วันนี้
+                                          <span className={`text-[7px] mt-0.5 block font-semibold ${dailyChange > 0 ? 'text-green-100' : 'text-red-100'}`}>
+                                            {dailyChange > 0 ? '▲ +' : '▼ '}{Math.abs(dailyChange).toLocaleString()}
                                           </span>
                                         )}
                                     </div>
-                                    
-                                    {/* Decorative Elements */}
-                                    <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
-                                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-black/5 to-transparent pointer-events-none"></div>
                                   </button>
                                   
                                   {isActive && currentProfile !== 'family' && (
-                                    <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-3 right-3 p-2 bg-black/30 rounded-full text-white hover:bg-black/50 cursor-pointer z-20 transition-all duration-200 hover:scale-125">
-                                        <Settings size={14} />
+                                    <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-2 right-2 p-1.5 bg-black/30 rounded-full text-white hover:bg-black/50 cursor-pointer z-20 transition-all duration-200 hover:scale-125">
+                                        <Settings size={12} />
                                     </div>
                                   )}
                                 </div>
@@ -1572,7 +1570,19 @@ export default function App() {
                     </div>
                   </div>
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ไอคอน หรือ ตัวย่อ</label>
-                    <div className="flex gap-2"><input type="text" maxLength={4} value={walletForm.icon} onChange={e => setWalletForm({...walletForm, icon: e.target.value})} className="w-16 text-center bg-white border border-gray-200 rounded-xl px-2 py-2 font-bold text-lg outline-none focus:border-blue-500" /><div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar flex-1">{iconsList.map(icon => (<button key={icon} onClick={() => setWalletForm({...walletForm, icon})} className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 transition-all flex-shrink-0 bg-white ${walletForm.icon === icon ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>{icon}</button>))}</div></div>
+                    <div className="flex gap-2 mb-3"><input type="text" maxLength={4} value={walletForm.icon} onChange={e => setWalletForm({...walletForm, icon: e.target.value})} className="w-16 text-center bg-white border border-gray-200 rounded-xl px-2 py-2 font-bold text-lg outline-none focus:border-blue-500" placeholder="✏️" /></div>
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                      {Object.entries(iconCategories).map(([category, icons]) => (
+                        <div key={category}>
+                          <p className="text-[9px] font-bold text-gray-500 uppercase mb-1.5">{category}</p>
+                          <div className="grid grid-cols-6 gap-1.5">
+                            {icons.map(icon => (
+                              <button key={icon} onClick={() => setWalletForm({...walletForm, icon})} className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg border-2 transition-all flex-shrink-0 bg-white ${walletForm.icon === icon ? 'border-blue-500 bg-blue-50 scale-110' : 'border-gray-200 hover:border-gray-300'}`}>{icon}</button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">สีธีม</label><div className="flex items-center gap-4"><input type="color" value={walletForm.color} onChange={e => setWalletForm({...walletForm, color: e.target.value})} className="w-12 h-12 rounded-full border-2 border-gray-200 cursor-pointer"/><span className="text-xs text-gray-500 font-mono">{walletForm.color}</span></div></div>
                 </div>
@@ -1650,9 +1660,18 @@ export default function App() {
                         <div className="flex gap-3 mb-3">
                              <div className="relative group">
                                 <div className="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-xl hover:border-blue-400 transition-colors cursor-pointer">{categoryForm.icon}</div>
-                                {/* Simple Icon Picker (Scrollable) */}
-                                <div className="absolute top-12 left-0 w-64 bg-white shadow-xl rounded-xl p-2 grid grid-cols-6 gap-1 z-50 hidden group-hover:grid border border-gray-200 h-40 overflow-y-auto">
-                                     {iconsList.map(i => <button key={i} onClick={() => setCategoryForm({...categoryForm, icon: i})} className="w-8 h-8 flex items-center justify-center hover:bg-blue-100 rounded transition-colors">{i}</button>)}
+                                {/* Icon Picker by Category */}
+                                <div className="absolute top-12 left-0 w-72 bg-white shadow-xl rounded-xl p-3 z-50 hidden group-hover:block border border-gray-200 max-h-60 overflow-y-auto">
+                                     <div className="space-y-2">
+                                       {Object.entries(iconCategories).map(([category, icons]) => (
+                                         <div key={category}>
+                                           <p className="text-[8px] font-bold text-gray-500 uppercase mb-1">{category}</p>
+                                           <div className="grid grid-cols-8 gap-0.5">
+                                             {icons.map(i => <button key={i} onClick={() => setCategoryForm({...categoryForm, icon: i})} className={`w-6 h-6 flex items-center justify-center text-sm hover:bg-blue-100 rounded transition-colors ${categoryForm.icon === i ? 'bg-blue-200' : ''}`}>{i}</button>)}
+                                           </div>
+                                         </div>
+                                       ))}
+                                     </div>
                                 </div>
                              </div>
                              <input type="text" value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} placeholder="ชื่อหมวดหมู่" className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"/>
@@ -1785,7 +1804,21 @@ export default function App() {
                  <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">แก้ไขโปรไฟล์</h2><div className="w-10"></div></div>
                  <div className="flex-1 p-6 space-y-6 overflow-y-auto">
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อเล่น</label><input type="text" value={profileForm.name} onChange={e => setProfileForm({...profileForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="ชื่อของคุณ"/></div>
-                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ไอคอนประจำตัว</label><div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{iconsList.map(icon => (<button key={icon} onClick={() => setProfileForm({...profileForm, icon})} className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 transition-all flex-shrink-0 bg-white ${profileForm.icon === icon ? `border-${themeColor.theme}-500 bg-${themeColor.theme}-50` : 'border-gray-200'}`}>{icon}</button>))}</div></div>
+                   <div>
+                     <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ไอคอนประจำตัว</label>
+                     <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                       {Object.entries(iconCategories).map(([category, icons]) => (
+                         <div key={category}>
+                           <p className="text-[9px] font-bold text-gray-500 uppercase mb-1">{category}</p>
+                           <div className="grid grid-cols-6 gap-1.5">
+                             {icons.map(icon => (
+                               <button key={icon} onClick={() => setProfileForm({...profileForm, icon})} className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg border-2 transition-all flex-shrink-0 bg-white ${profileForm.icon === icon ? `border-blue-500 bg-blue-50 scale-110` : 'border-gray-200 hover:border-gray-300'}`}>{icon}</button>
+                             ))}
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ธีมสีหลัก</label><div className="grid grid-cols-5 gap-3">{colorsList.map(c => (<button key={c.id} onClick={() => setProfileForm({...profileForm, theme: c.id})} className={`h-10 rounded-xl bg-gradient-to-br ${c.class} transition-all ${profileForm.theme === c.id ? 'ring-4 ring-offset-2 ring-gray-300 scale-105' : 'opacity-70 grayscale'}`}/>))}</div></div>
                  </div>
                  <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={handleSaveProfile} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all hover:shadow-xl`}>{loading ? '...' : 'บันทึก'}</button></div>
