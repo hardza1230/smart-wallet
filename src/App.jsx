@@ -44,7 +44,7 @@ const bankPresets = [
   { name: 'GSB', color: '#eb198d', icon: 'GSB' },
   { name: 'TrueMoney', color: '#ff5c00', icon: 'TM' },
   { name: 'Cash', color: '#64748b', icon: '💵' },
-  { name: 'Credit', color: '#171717', icon: '💳' },
+  { name: 'Credit', color: '#171717', icon: '💳' }
 ];
 
 const defaultQuickMenus = [
@@ -53,7 +53,6 @@ const defaultQuickMenus = [
   { name: 'วิน/รถเมล์', amount: 30, icon: '🚌', category: 'เดินทาง' },
   { name: 'ข้าวเที่ยง', amount: 60, icon: '🍛', category: 'อาหาร' },
   { name: 'น้ำเปล่า', amount: 10, icon: '💧', category: 'อาหาร' },
-  { name: '7-11', amount: 100, icon: '🏪', category: 'ช้อปปิ้ง' }
 ];
 
 const colorsList = [
@@ -457,6 +456,18 @@ export default function App() {
   }, [transactions, selectedMonth]);
 
   const currentWalletTransactions = displayTransactions.filter(t => t.walletId === activeWalletId);
+  
+  // All wallets transactions (sorted by newest first) with wallet info
+  const allWalletsTransactions = useMemo(() => {
+      return displayTransactions
+          .map(t => ({
+              ...t,
+              walletName: wallets.find(w => w.id === t.walletId)?.name || 'Unknown',
+              walletIcon: wallets.find(w => w.id === t.walletId)?.icon || '💵',
+              walletColor: wallets.find(w => w.id === t.walletId)?.color || '#64748b'
+          }))
+          .sort((a, b) => b.timestamp - a.timestamp);
+  }, [displayTransactions, wallets]);
 
   // Calculations
   const calculateBalance = (wallet) => {
@@ -712,21 +723,65 @@ export default function App() {
 
   // --- CATEGORY MANAGEMENT ---
   const openManageCategory = () => { setCategoryForm({ id: null, name: '', icon: '✨', color: '#64748b', type: 'expense' }); setModalMode('manage-categories'); };
+  
+  const editCategory = (cat) => {
+      if (!cat || !cat.id) {
+          showToast("เกิดข้อผิดพลาด - ไม่พบข้อมูลหมวดหมู่", "error");
+          return;
+      }
+      setCategoryForm({
+          id: cat.id,
+          name: cat.name || '',
+          icon: cat.icon || '✨',
+          color: cat.color || '#64748b',
+          type: cat.type || 'expense'
+      });
+  };
+  
   const handleSaveCategory = async () => {
       if (!categoryForm.name) return showToast("กรุณาใส่ชื่อหมวดหมู่", "error");
       setLoading(true);
       try {
+          const categoryData = {
+              name: categoryForm.name,
+              icon: categoryForm.icon || '✨',
+              color: categoryForm.color || '#64748b',
+              type: categoryForm.type || 'expense'
+          };
           if (categoryForm.id) {
-              await updateDoc(doc(db, "custom_categories", categoryForm.id), categoryForm);
+              await updateDoc(doc(db, "custom_categories", categoryForm.id), categoryData);
           } else {
-              await addDoc(collection(db, "custom_categories"), { ...categoryForm, createdAt: Date.now() });
+              await addDoc(collection(db, "custom_categories"), { ...categoryData, createdAt: Date.now() });
           }
-          setCategoryForm(prev => ({ ...prev, id: null, name: '', icon: '✨' })); // Clear but keep type/color
+          setCategoryForm({ id: null, name: '', icon: '✨', color: '#64748b', type: 'expense' });
           showToast("บันทึกหมวดหมู่แล้ว");
-      } catch(e) { showToast(e.message, "error"); } finally { setLoading(false); }
+      } catch(e) { 
+          showToast("บันทึกไม่สำเร็จ: " + e.message, "error"); 
+      } finally { 
+          setLoading(false); 
+      }
   };
   const handleDeleteCategory = async (id) => {
-      if(confirm("ลบหมวดหมู่นี้?")) await deleteDoc(doc(db, "custom_categories", id));
+      if (!id) {
+          showToast("ไม่สามารถลบได้ - ไม่พบรหัสหมวดหมู่", "error");
+          return;
+      }
+      if(confirm("ลบหมวดหมู่นี้?")) {
+          setLoading(true);
+          try {
+              await deleteDoc(doc(db, "custom_categories", id));
+              // Clear the form if we're editing this category
+              if(categoryForm.id === id) {
+                  setCategoryForm({ id: null, name: '', icon: '✨', color: '#64748b', type: 'expense' });
+              }
+              showToast("ลบหมวดหมู่เรียบร้อยแล้ว");
+          } catch(e) {
+              console.error("Delete error:", e);
+              showToast("ลบไม่สำเร็จ: " + (e.message || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ"), "error");
+          } finally {
+              setLoading(false);
+          }
+      }
   };
 
   const handleSaveBudget = async () => {
@@ -878,14 +933,14 @@ export default function App() {
   };
   
   return (
-    <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${themeColor.bg} text-gray-900 md:items-center md:p-8`}>
-      <div className="w-full bg-white min-h-screen flex flex-col relative shadow-2xl sm:border border-gray-200 md:min-h-0 md:h-[85vh] md:rounded-[2.5rem] md:max-w-6xl md:flex-row overflow-hidden transition-all duration-500">
+    <div className={`flex justify-center min-h-screen font-sans transition-colors duration-500 ${themeColor.bg} text-gray-900 md:items-center md:p-4 bg-gradient-to-br from-gray-50 to-gray-100`}>
+      <div className="w-full bg-white min-h-screen flex flex-col relative shadow-2xl sm:border border-gray-200 md:min-h-0 md:h-[85vh] md:rounded-[2.5rem] md:max-w-6xl md:flex-row overflow-hidden transition-all duration-500 md:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]">
         
         <Particles key={animState.key} active={animState.active} type={animState.type} />
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
         {/* --- DESKTOP SIDEBAR NAVIGATION (Visible on MD+) --- */}
-        <nav className="hidden md:flex flex-col w-20 bg-gray-50 border-r border-gray-100 items-center py-8 gap-6 z-20 shrink-0">
+        <nav className="hidden md:flex flex-col w-20 bg-gradient-to-b from-white via-gray-50 to-gray-100 border-r border-gray-100 items-center py-8 gap-6 z-20 shrink-0">
            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm bg-white border border-gray-200 mb-4 cursor-pointer`} onClick={handleEditProfile}>{profileData.icon}</div>
            
            <button onClick={() => setViewMode('dashboard')} className={`p-3 rounded-2xl transition-all group relative ${viewMode === 'dashboard' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-white hover:shadow-md hover:text-gray-600'}`}>
@@ -927,7 +982,7 @@ export default function App() {
         </nav>
 
         {/* HEADER (MOBILE ONLY) */}
-        <div className={`md:hidden bg-white/95 backdrop-blur-md pt-8 pb-3 px-5 z-40 sticky top-0 border-b border-gray-200 flex justify-between items-center shadow-sm`}>
+        <div className={`md:hidden bg-gradient-to-r from-white/95 to-gray-50/95 backdrop-blur-md pt-8 pb-3 px-5 z-40 sticky top-0 border-b border-gray-100 flex justify-between items-center shadow-sm`}>
            <div className="flex items-center gap-2 cursor-pointer group" onClick={handleEditProfile}>
              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shadow-inner bg-gray-50 border border-gray-200 ${themeColor.text}`}>{profileData.icon}</div>
              <div>
@@ -1010,14 +1065,14 @@ export default function App() {
                                         key={idx} 
                                         onClick={() => handleQuickAdd(menu)}
                                         disabled={loading}
-                                        className="flex-shrink-0 bg-white border border-gray-200 rounded-xl p-2 flex flex-col items-center min-w-[70px] active:scale-95 transition-transform hover:border-yellow-400 hover:bg-yellow-50"
+                                        className="flex-shrink-0 bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl p-2 flex flex-col items-center min-w-[70px] active:scale-95 transition-all hover:border-yellow-400 hover:bg-yellow-50 hover:shadow-md"
                                     >
                                         <span className="text-xl mb-1">{menu.icon}</span>
                                         <span className="text-[9px] font-bold text-gray-600 truncate w-full text-center">{menu.name}</span>
                                         <span className="text-[9px] text-gray-400">฿{menu.amount}</span>
                                     </button>
                                 ))}
-                                <button onClick={openManageQuickMenu} className="flex-shrink-0 bg-gray-50 border border-dashed border-gray-300 rounded-xl p-2 flex flex-col items-center justify-center min-w-[70px] text-gray-400 hover:bg-gray-100">
+                                <button onClick={openManageQuickMenu} className="flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 border border-dashed border-gray-300 rounded-xl p-2 flex flex-col items-center justify-center min-w-[70px] text-gray-400 hover:bg-gray-100 hover:border-gray-400 transition-all hover:shadow-sm">
                                     <Plus size={20}/>
                                 </button>
                             </div>
@@ -1025,13 +1080,13 @@ export default function App() {
 
                         {/* Total Wealth & Daily Budget */}
                         <div className="px-5 pt-2 md:px-0 md:pt-0 grid grid-cols-2 gap-3">
-                          <div className={`p-4 rounded-2xl text-white shadow-lg bg-gradient-to-br ${themeColor.class} relative overflow-hidden group`}>
-                            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Wallet size={64}/></div>
+                          <div className={`p-4 rounded-2xl text-white shadow-lg bg-gradient-to-br ${themeColor.class} relative overflow-hidden group hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]`}>
+                            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity duration-300"><Wallet size={64}/></div>
                             <p className="text-[9px] font-bold opacity-70 mb-1 uppercase tracking-wide">สินทรัพย์รวม</p>
                             <h2 className="text-2xl font-bold tracking-tight">{privacyMode ? '••••••' : `฿${totalWealth.toLocaleString()}`}</h2>
                           </div>
-                          <div className={`p-4 rounded-2xl border transition-all relative overflow-hidden ${totalMonthlyBudget === 0 ? 'bg-gray-100 border-gray-200' : dailyBudget > 500 ? 'bg-green-50 border-green-200 text-green-800' : dailyBudget > 200 ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-                            <div className="absolute right-0 top-0 p-3 opacity-10"><Target size={64}/></div>
+                          <div className={`p-4 rounded-2xl border transition-all relative overflow-hidden hover:shadow-md duration-300 transform hover:scale-[1.02] ${totalMonthlyBudget === 0 ? 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-200 shadow-sm' : dailyBudget > 500 ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-200 text-green-800 shadow-sm' : dailyBudget > 200 ? 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 text-orange-800 shadow-sm' : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200 text-red-800 shadow-sm'}`}>
+                            <div className="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity duration-300"><Target size={64}/></div>
                             <div className="flex items-center gap-1 mb-1">
                                <Target size={12} />
                                <p className="text-[9px] font-bold uppercase tracking-wide">ใช้ได้วันละ</p>
@@ -1045,16 +1100,16 @@ export default function App() {
                         </div>
 
                         {/* Wallets (Vertical List UI) */}
-                        <div className="pt-4 pb-2 md:px-0 md:pt-0">
-                          <div className="px-5 mb-2 md:px-0 flex justify-between items-center">
-                            <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-gray-800 pl-2">
-                                กระเป๋าเงิน
+                        <div className="pt-6 pb-4 md:px-0 md:pt-8">
+                          <div className="px-5 mb-4 md:px-0 flex justify-between items-center">
+                            <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">
+                                💼 กระเป๋าเงิน
                             </span>
                             <div className="flex gap-2">
-                                {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-full flex items-center gap-1 border border-gray-300"><Plus size={10} /> เพิ่ม</button>)}
+                                {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 border-0 font-bold shadow-md hover:shadow-lg transition-all"><Plus size={14} /> สร้างใหม่</button>)}
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 px-5 pb-2 md:px-0 md:grid-cols-2 md:gap-3">
+                          <div className="grid grid-cols-2 gap-3 px-5 pb-4 md:px-0 md:grid-cols-2 md:gap-4">
                             {visibleWallets.length === 0 ? (
                               <div className="w-full md:col-span-2 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
                             ) : visibleWallets.map((wallet, index) => {
@@ -1064,8 +1119,7 @@ export default function App() {
                               
                               const isNegative = balance < 0;
                               const balanceColor = isNegative ? 'text-red-200' : 'text-white';
-                              const ownerProfile = appProfiles[wallet.owner]; 
-                              const isCredit = wallet.type === 'credit'; // Kept for legacy/icon logic but display is standard
+                              const ownerProfile = appProfiles[wallet.owner];
 
                               return (
                                 <div 
@@ -1074,39 +1128,39 @@ export default function App() {
                                 >
                                   <button 
                                     onClick={() => setActiveWalletId(wallet.id)} 
-                                    className={`relative w-full h-auto min-h-[80px] rounded-2xl shadow-md overflow-hidden transition-all flex flex-col justify-center items-start p-3 md:h-24 md:flex-row md:items-center md:justify-between md:px-4 ${isActive ? 'ring-2 ring-offset-1 ring-gray-400' : 'opacity-90 hover:opacity-100 hover:scale-[1.02]'}`} 
+                                    className={`relative w-full h-auto min-h-[100px] rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between p-4 md:h-28 md:flex-row md:items-center md:justify-between md:px-5 ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 shadow-lg scale-105' : 'shadow-md opacity-90 hover:opacity-100 hover:shadow-lg hover:scale-[1.02]'}`} 
                                     style={{ backgroundColor: wallet.color, color: 'white' }}
                                   >
-                                    <div className="flex items-center gap-2 md:gap-4 z-10 w-full">
-                                        <div className="relative shrink-0">
-                                            <span className="text-2xl md:text-3xl drop-shadow-md">{wallet.icon}</span>
-                                            {ownerProfile && <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white flex items-center justify-center text-[8px] md:text-xs border border-gray-100 shadow-sm text-gray-800" title={ownerProfile.name}>{ownerProfile.icon}</div>}
+                                    {/* Top Section: Icon & Name */}
+                                    <div className="flex items-center gap-3 z-10 w-full">
+                                        <div className="relative flex-shrink-0">
+                                            <span className="text-4xl drop-shadow-md">{wallet.icon}</span>
+                                            {ownerProfile && <div className="absolute -bottom-2 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center text-xs border border-gray-100 shadow-sm text-gray-800 font-bold">{ownerProfile.icon}</div>}
                                         </div>
-                                        <div className="text-left min-w-0 flex-1">
-                                            <p className="text-[10px] md:text-xs uppercase font-bold opacity-90 mb-0.5 truncate flex items-center gap-1">
-                                              <span className="truncate">{wallet.name}</span>
-                                            </p>
-                                            <p className="text-[9px] md:text-[10px] opacity-70 truncate">ของ {ownerProfile?.name}</p>
+                                        <div className="text-left min-w-0">
+                                            <p className="text-xs uppercase font-bold opacity-90 leading-tight">{wallet.name}</p>
+                                            <p className="text-[8px] opacity-70">ของ {ownerProfile?.name || 'Unknown'}</p>
                                         </div>
                                     </div>
                                     
-                                    <div className="text-left md:text-right z-10 mt-2 md:mt-0 w-full">
-                                        <span className={`text-base md:text-xl font-bold tracking-tight block ${balanceColor}`}>{privacyMode ? '••••••' : balance.toLocaleString()}</span>
+                                    {/* Bottom Section: Balance */}
+                                    <div className="text-right z-10 mt-3 md:mt-0">
+                                        <span className={`text-2xl font-bold tracking-tight block leading-tight ${balanceColor}`}>{privacyMode ? '••••••' : `฿${balance.toLocaleString()}`}</span>
                                         {!privacyMode && dailyChange !== 0 && (
-                                          <span className={`text-[9px] block ${isActive ? 'text-white/80' : 'text-gray-200'}`}>
-                                            {dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()}
+                                          <span className={`text-[9px] mt-0.5 block font-semibold ${dailyChange > 0 ? 'text-green-100' : 'text-red-100'}`}>
+                                            {dailyChange > 0 ? '▲ +' : '▼ '}{Math.abs(dailyChange).toLocaleString()} วันนี้
                                           </span>
                                         )}
                                     </div>
                                     
                                     {/* Decorative Elements */}
-                                    <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
-                                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-black/10 to-transparent pointer-events-none"></div>
+                                    <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
+                                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-black/5 to-transparent pointer-events-none"></div>
                                   </button>
                                   
                                   {isActive && currentProfile !== 'family' && (
-                                    <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-2 right-2 p-1.5 bg-black/20 rounded-full text-white/90 hover:bg-black/30 cursor-pointer z-20">
-                                        <Settings size={12} />
+                                    <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-3 right-3 p-2 bg-black/30 rounded-full text-white hover:bg-black/50 cursor-pointer z-20 transition-all duration-200 hover:scale-125">
+                                        <Settings size={14} />
                                     </div>
                                   )}
                                 </div>
@@ -1116,9 +1170,9 @@ export default function App() {
                         </div>
 
                         {/* Budgets */}
-                        <div className="px-5 py-2 md:px-0">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-gray-800 pl-2">
+                        <div className="px-5 py-4 md:px-0 md:pt-8">
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-orange-600 pl-3">
                                 <Target size={16}/> งบประมาณ (เดือนนี้)
                             </span>
                             {currentProfile !== 'family' && <button onClick={openCreateBudget} className={`text-[10px] ${themeColor.text} font-bold flex items-center gap-1 hover:opacity-80`}>+ ตั้งเป้า</button>}
@@ -1131,7 +1185,7 @@ export default function App() {
                               const percent = Math.min((spent / b.limit) * 100, 100);
                               const isOver = spent > b.limit;
                               return (
-                                <div key={b.id} onClick={() => openEditBudget(b)} className="flex-shrink-0 w-36 md:w-full bg-white p-3 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group cursor-pointer snap-start hover:border-gray-300 hover:shadow-md transition-all">
+                                <div key={b.id} onClick={() => openEditBudget(b)} className="flex-shrink-0 w-36 md:w-full bg-gradient-to-br from-white to-gray-50 p-3 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group cursor-pointer snap-start hover:border-gray-300 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
                                   <div className="flex justify-between items-start mb-2"><div className="flex items-center gap-1.5"><span className="text-base">{expenseCategories.find(c => c.name === b.category)?.icon || '💸'}</span><span className="text-[10px] font-bold truncate w-16 text-gray-700">{b.category}</span></div>{isOver && <AlertCircle size={12} className="text-red-500 animate-pulse"/>}</div>
                                   <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1"><div style={{ width: `${percent}%` }} className={`h-full rounded-full ${isOver ? 'bg-red-500' : percent > 80 ? 'bg-orange-500' : 'bg-green-500'} transition-all duration-500`}></div></div>
                                   <div className="flex justify-between items-end"><span className={`text-[10px] font-bold ${isOver ? 'text-red-600' : 'text-gray-700'}`}>{privacyMode ? '•••' : spent.toLocaleString()}</span><span className="text-[9px] text-gray-400">/ {b.limit.toLocaleString()}</span></div>
@@ -1153,17 +1207,25 @@ export default function App() {
 
                         {/* Transactions List */}
                         <div className="px-5 pt-2 md:px-0 md:flex-1 md:overflow-y-auto md:pr-2">
-                          <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-l-4 border-gray-800 pl-2"><Activity size={16}/> รายการ (เดือนที่เลือก)</h3>
-                          {currentWalletTransactions.length === 0 ? (
+                          <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-l-4 border-gray-800 pl-2"><Activity size={16}/> รายการล่าสุด (ทุกกระเป๋า)</h3>
+                          {allWalletsTransactions.length === 0 ? (
                              <div className="py-8 flex flex-col items-center justify-center text-gray-400 gap-2 border border-dashed border-gray-300 rounded-xl bg-gray-50/50"><Wallet size={20} className="opacity-50"/><p className="text-[10px]">ยังไม่มีรายการในเดือนนี้</p></div>
                           ) : (
                              <div className="space-y-2">
-                               {currentWalletTransactions.map(t => (
-                                 <div key={t.id} onClick={() => handleOpenTransaction(t.type, t)} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 active:scale-[0.99] transition-transform hover:border-blue-300 hover:shadow-md cursor-pointer group">
+                               {allWalletsTransactions.map(t => (
+                                 <div key={t.id} onClick={() => handleOpenTransaction(t.type, t)} className="bg-gradient-to-r from-white to-gray-50 p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 active:scale-[0.99] transition-all duration-200 hover:border-blue-300 hover:shadow-lg hover:scale-[1.01] cursor-pointer group">
                                     <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-lg ${t.type === 'income' ? 'bg-green-100' : t.type === 'transfer' ? 'bg-blue-100' : 'bg-red-100'}`}>{t.type === 'transfer' ? <ArrowRightLeft size={14} className="text-blue-600"/> : (t.type === 'income' ? (incomeCategories.find(c => c.name === t.category)?.icon || '💰') : (expenseCategories.find(c => c.name === t.category)?.icon || '💸'))}</div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex justify-between items-baseline"><span className="font-semibold text-gray-800 text-xs truncate">{t.category} {t.note && <span className="text-gray-400 font-normal ml-1 text-[10px]">{t.note}</span>}</span><span className={`font-bold text-xs ${t.type === 'income' ? 'text-green-700' : t.type === 'transfer' ? 'text-blue-700' : 'text-red-600'}`}>{t.type === 'income' ? '+' : '-'} {privacyMode ? '•••' : t.amount.toLocaleString()}</span></div>
-                                      <div className="flex justify-between mt-0.5"><span className="text-[9px] text-gray-400">{t.dateDisplay}</span>{currentProfile !== 'family' && <span className="text-[9px] text-gray-300 md:opacity-0 md:group-hover:opacity-100 transition-opacity">แตะเพื่อแก้ไข</span>}</div>
+                                      <div className="flex justify-between mt-0.5 items-center">
+                                          <div className="flex items-center gap-1">
+                                              <span className="text-[9px] text-gray-400">{t.dateDisplay}</span>
+                                              <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1" style={{ backgroundColor: t.walletColor + '20', color: t.walletColor }}>
+                                                  <span>{t.walletIcon}</span> {t.walletName}
+                                              </span>
+                                          </div>
+                                          {currentProfile !== 'family' && <span className="text-[9px] text-gray-300 md:opacity-0 md:group-hover:opacity-100 transition-opacity">แตะเพื่อแก้ไข</span>}
+                                      </div>
                                     </div>
                                  </div>
                                ))}
@@ -1366,10 +1428,10 @@ export default function App() {
 
         {/* MODAL: ADD/EDIT TRANSACTION */}
         {modalMode === 'add-transaction' && (
-          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/50">
-            <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white">
-                    <button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/40">
+            <div className="bg-gradient-to-b from-white to-gray-50 w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden md:drop-shadow-2xl">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50">
+                    <button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors duration-200"><X size={24}/></button>
                     <h2 className="text-base font-bold text-gray-800">{transactionForm.id ? 'แก้ไขรายการ' : 'เพิ่มรายการ'}</h2>
                     {transactionForm.id ? <button onClick={() => { handleDeleteTransaction(transactionForm.id); setModalMode(null); }} className="text-red-500 p-2"><Trash2 size={20}/></button> : <div className="w-10"></div>}
                 </div>
@@ -1430,7 +1492,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveTransaction} disabled={loading} className={`w-full h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-white ${transactionForm.type === 'expense' ? 'bg-red-600 shadow-red-200' : transactionForm.type === 'transfer' ? 'bg-blue-600 shadow-blue-200' : 'bg-green-600 shadow-green-200'}`}>{loading ? <Loader2 className="animate-spin"/> : (transactionForm.id ? 'บันทึกการแก้ไข' : (transactionForm.type === 'transfer' ? 'โอนเงิน' : 'บันทึก'))}</button></div>
+                <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={handleSaveTransaction} disabled={loading} className={`w-full h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-white hover:shadow-xl disabled:opacity-50 ${transactionForm.type === 'expense' ? 'bg-red-600 shadow-red-200' : transactionForm.type === 'transfer' ? 'bg-blue-600 shadow-blue-200' : 'bg-green-600 shadow-green-200'}`}>{loading ? <Loader2 className="animate-spin"/> : (transactionForm.id ? 'บันทึกการแก้ไข' : (transactionForm.type === 'transfer' ? 'โอนเงิน' : 'บันทึก'))}</button></div>
             </div>
           </div>
         )}
@@ -1438,15 +1500,15 @@ export default function App() {
         {/* ... (Other Modals: PayBill, Wallet, Budget, Wishlist, Event, Profile, QuickMenu... Kept same) ... */}
         {/* MODAL: ADD BILL */}
         {modalMode === 'add-bill' && (
-          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/50">
-            <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">เพิ่มบิลกลาง</h2><div className="w-10"></div></div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/40">
+            <div className="bg-gradient-to-b from-white to-gray-50 w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden md:drop-shadow-2xl">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">เพิ่มบิลกลาง</h2><div className="w-10"></div></div>
                 <div className="flex-1 p-6">
                   <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อบิล</label><input type="text" autoFocus value={billForm.title} onChange={e => setBillForm({...billForm, title: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="..."/></div>
                   <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ยอดเงิน</label><input type="number" value={billForm.amount} onChange={e => setBillForm({...billForm, amount: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xl font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="0.00"/></div>
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">จ่ายทุกวันที่</label><input type="number" min="1" max="31" value={billForm.recurringDay} onChange={e => setBillForm({...billForm, recurringDay: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-purple-500" placeholder="1-31"/></div>
                 </div>
-                <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleAddBill} disabled={loading} className="w-full bg-purple-600 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">{loading ? '...' : 'สร้างบิล'}</button></div>
+                <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={handleAddBill} disabled={loading} className="w-full bg-purple-600 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all hover:shadow-xl hover:bg-purple-700">{loading ? '...' : 'สร้างบิล'}</button></div>
             </div>
           </div>
         )}
@@ -1491,8 +1553,8 @@ export default function App() {
 
         {/* MODAL: MANAGE WALLET */}
         {modalMode === 'manage-wallet' && (
-          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200 md:items-center md:justify-center md:bg-black/50 md:slide-in-from-bottom">
-             <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex flex-col animate-in slide-in-from-right duration-200 md:items-center md:justify-center md:bg-black/40 md:slide-in-from-bottom">
+             <div className="bg-gradient-to-b from-white to-gray-50 w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden md:drop-shadow-2xl">
                  <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">{walletForm.id ? 'แก้ไขกระเป๋า' : 'สร้างกระเป๋าใหม่'}</h2><div className="w-10"></div></div>
                 <div className="flex-1 p-6 space-y-5 overflow-y-auto">
                   <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อกระเป๋า</label><input type="text" value={walletForm.name} onChange={e => setWalletForm({...walletForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น เงินเดือน"/></div>
@@ -1571,65 +1633,73 @@ export default function App() {
         
         {/* MODAL: MANAGE CATEGORIES */}
         {modalMode === 'manage-categories' && (
-          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/50">
-            <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">ปรับแต่งหมวดหมู่</h2><div className="w-10"></div></div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/40">
+            <div className="bg-gradient-to-b from-white to-gray-50 w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden md:drop-shadow-2xl">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">ปรับแต่งหมวดหมู่</h2><div className="w-10"></div></div>
                 <div className="flex-1 p-6 overflow-y-auto">
                     
                     {/* Add/Edit Form */}
-                    <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-200">
-                        <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase">{categoryForm.id ? 'แก้ไข' : 'เพิ่มใหม่'}</h3>
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl mb-6 border border-gray-200 shadow-sm">
+                        <h3 className="text-xs font-bold text-gray-600 mb-3 uppercase tracking-wider">{categoryForm.id ? '✏️ แก้ไข' : '➕ เพิ่มใหม่'}</h3>
                         
                         <div className="flex gap-2 mb-3">
-                             <button onClick={() => setCategoryForm({...categoryForm, type: 'expense'})} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${categoryForm.type === 'expense' ? 'bg-red-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}>รายจ่าย</button>
-                             <button onClick={() => setCategoryForm({...categoryForm, type: 'income'})} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${categoryForm.type === 'income' ? 'bg-green-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}>รายรับ</button>
+                             <button onClick={() => setCategoryForm({...categoryForm, type: 'expense'})} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${categoryForm.type === 'expense' ? 'bg-red-500 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-300 hover:border-red-400'}`}>💸 รายจ่าย</button>
+                             <button onClick={() => setCategoryForm({...categoryForm, type: 'income'})} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${categoryForm.type === 'income' ? 'bg-green-500 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-300 hover:border-green-400'}`}>💰 รายรับ</button>
                         </div>
 
                         <div className="flex gap-3 mb-3">
                              <div className="relative group">
-                                <div className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-lg text-xl">{categoryForm.icon}</div>
+                                <div className="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-xl hover:border-blue-400 transition-colors cursor-pointer">{categoryForm.icon}</div>
                                 {/* Simple Icon Picker (Scrollable) */}
-                                <div className="absolute top-12 left-0 w-64 bg-white shadow-xl rounded-xl p-2 grid grid-cols-6 gap-1 z-50 hidden group-hover:grid border border-gray-100 h-40 overflow-y-auto">
-                                     {iconsList.map(i => <button key={i} onClick={() => setCategoryForm({...categoryForm, icon: i})} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded">{i}</button>)}
+                                <div className="absolute top-12 left-0 w-64 bg-white shadow-xl rounded-xl p-2 grid grid-cols-6 gap-1 z-50 hidden group-hover:grid border border-gray-200 h-40 overflow-y-auto">
+                                     {iconsList.map(i => <button key={i} onClick={() => setCategoryForm({...categoryForm, icon: i})} className="w-8 h-8 flex items-center justify-center hover:bg-blue-100 rounded transition-colors">{i}</button>)}
                                 </div>
                              </div>
-                             <input type="text" value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} placeholder="ชื่อหมวดหมู่" className="flex-1 bg-white border border-gray-200 rounded-lg px-3 text-sm outline-none"/>
+                             <input type="text" value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} placeholder="ชื่อหมวดหมู่" className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"/>
                         </div>
-                        <button onClick={handleSaveCategory} disabled={loading} className="w-full bg-gray-800 text-white py-2 rounded-lg text-xs font-bold">บันทึก</button>
+                        <button onClick={handleSaveCategory} disabled={loading} className="w-full bg-gradient-to-r from-gray-800 to-gray-900 text-white py-2 rounded-lg text-xs font-bold hover:shadow-lg transition-all active:scale-95 disabled:opacity-50">{loading ? '⏳ บันทึก...' : 'บันทึก'}</button>
                     </div>
 
                     {/* List */}
                     <div>
-                        <h3 className="text-xs font-bold text-red-500 mb-2 uppercase">รายจ่าย</h3>
+                        <h3 className="text-xs font-bold text-red-500 mb-3 uppercase tracking-wider border-l-4 border-red-500 pl-2">💸 รายจ่าย</h3>
                         <div className="grid grid-cols-1 gap-2 mb-6">
-                            {expenseCategories.map(cat => (
-                                <div key={cat.id} className="flex justify-between items-center p-2 bg-white border border-gray-100 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-lg">{cat.icon}</span>
-                                        <span className="text-sm text-gray-700">{cat.name}</span>
+                            {expenseCategories.length === 0 ? (
+                                <p className="text-xs text-gray-400 text-center py-3">ไม่มีหมวดรายจ่าย</p>
+                            ) : (
+                                expenseCategories.map(cat => (
+                                    <div key={cat.id} className="flex justify-between items-center p-3 bg-gradient-to-r from-white to-gray-50 border border-gray-200 rounded-lg hover:shadow-md transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-lg">{cat.icon}</span>
+                                            <span className="text-sm font-medium text-gray-700">{cat.name}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => editCategory(cat)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors" title="แก้ไข"><Edit3 size={14}/></button>
+                                            <button onClick={() => handleDeleteCategory(cat.id)} disabled={loading} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50" title="ลบ"><Trash2 size={14}/></button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-1">
-                                        <button onClick={() => setCategoryForm(cat)} className="p-1.5 text-gray-300 hover:text-blue-500"><Edit3 size={14}/></button>
-                                        <button onClick={() => handleDeleteCategory(cat.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14}/></button>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
 
-                        <h3 className="text-xs font-bold text-green-500 mb-2 uppercase">รายรับ</h3>
+                        <h3 className="text-xs font-bold text-green-500 mb-3 uppercase tracking-wider border-l-4 border-green-500 pl-2">💰 รายรับ</h3>
                         <div className="grid grid-cols-1 gap-2">
-                            {incomeCategories.map(cat => (
-                                <div key={cat.id} className="flex justify-between items-center p-2 bg-white border border-gray-100 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-lg">{cat.icon}</span>
-                                        <span className="text-sm text-gray-700">{cat.name}</span>
+                            {incomeCategories.length === 0 ? (
+                                <p className="text-xs text-gray-400 text-center py-3">ไม่มีหมวดรายรับ</p>
+                            ) : (
+                                incomeCategories.map(cat => (
+                                    <div key={cat.id} className="flex justify-between items-center p-3 bg-gradient-to-r from-white to-gray-50 border border-gray-200 rounded-lg hover:shadow-md transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-lg">{cat.icon}</span>
+                                            <span className="text-sm font-medium text-gray-700">{cat.name}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => editCategory(cat)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors" title="แก้ไข"><Edit3 size={14}/></button>
+                                            <button onClick={() => handleDeleteCategory(cat.id)} disabled={loading} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50" title="ลบ"><Trash2 size={14}/></button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-1">
-                                        <button onClick={() => setCategoryForm(cat)} className="p-1.5 text-gray-300 hover:text-blue-500"><Edit3 size={14}/></button>
-                                        <button onClick={() => handleDeleteCategory(cat.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14}/></button>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </div>
 
@@ -1640,23 +1710,23 @@ export default function App() {
 
         {/* MODAL: MANAGE BUDGET */}
         {modalMode === 'manage-budget' && (
-          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200 md:items-center md:justify-center md:bg-black/50 md:slide-in-from-bottom">
-             <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-                 <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">{budgetForm.id ? 'แก้ไขงบ' : 'ตั้งงบประมาณใหม่'}</h2>{budgetForm.id ? <button onClick={() => handleDeleteBudget(budgetForm.id)} className="text-red-500"><Trash2 size={20}/></button> : <div className="w-5"></div>}</div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex flex-col animate-in slide-in-from-right duration-200 md:items-center md:justify-center md:bg-black/40 md:slide-in-from-bottom">
+             <div className="bg-gradient-to-b from-white to-gray-50 w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden md:drop-shadow-2xl">
+                 <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">{budgetForm.id ? 'แก้ไขงบ' : 'ตั้งงบประมาณใหม่'}</h2>{budgetForm.id ? <button onClick={() => handleDeleteBudget(budgetForm.id)} className="text-red-500 hover:text-red-700"><Trash2 size={20}/></button> : <div className="w-5"></div>}</div>
                  <div className="flex-1 p-6 space-y-6 overflow-y-auto">
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-3 block">หมวดหมู่</label><div className="grid grid-cols-4 gap-3">{expenseCategories.map(cat => (<button key={cat.id} onClick={() => setBudgetForm({...budgetForm, category: cat.name})} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${budgetForm.category === cat.name ? `bg-${themeColor.theme}-600 text-white shadow-lg scale-105 border-${themeColor.theme}-600` : 'border-gray-200 hover:border-gray-300'}`}><span className="text-2xl">{cat.icon}</span><span className="text-[10px] font-bold">{cat.name}</span></button>))}</div></div>
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">งบ (บาท)</label><input type="number" autoFocus value={budgetForm.limit} onChange={e => setBudgetForm({...budgetForm, limit: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-xl font-bold text-gray-800 outline-none focus:border-blue-500" placeholder="เช่น 5000"/></div>
                  </div>
-                 <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveBudget} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? '...' : 'บันทึก'}</button></div>
+                 <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={handleSaveBudget} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all hover:shadow-xl`}>{loading ? '...' : 'บันทึก'}</button></div>
              </div>
           </div>
         )}
         
         {/* MODAL: MANAGE WISHLIST */}
         {modalMode === 'manage-wishlist' && (
-          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/50">
-            <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">{wishlistForm.id ? 'แก้ไขรายการ' : 'เพิ่มของที่อยากได้'}</h2><div className="w-10"></div></div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/40">
+            <div className="bg-gradient-to-b from-white to-gray-50 w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden md:drop-shadow-2xl">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">{wishlistForm.id ? 'แก้ไขรายการ' : 'เพิ่มของที่อยากได้'}</h2><div className="w-10"></div></div>
                 <div className="flex-1 p-6">
                   <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อของ</label><input type="text" autoFocus value={wishlistForm.title} onChange={e => setWishlistForm({...wishlistForm, title: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-pink-500" placeholder="..."/></div>
                   <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ราคา</label><input type="number" value={wishlistForm.price} onChange={e => setWishlistForm({...wishlistForm, price: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xl font-bold text-gray-800 outline-none focus:border-pink-500" placeholder="0.00"/></div>
@@ -1669,16 +1739,16 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveWishlist} disabled={loading} className="w-full bg-pink-500 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">{loading ? '...' : 'บันทึก'}</button></div>
+                <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={handleSaveWishlist} disabled={loading} className="w-full bg-pink-500 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all hover:shadow-xl hover:bg-pink-600">{loading ? '...' : 'บันทึก'}</button></div>
             </div>
           </div>
         )}
 
         {/* MODAL: MANAGE EVENT */}
         {modalMode === 'manage-event' && (
-          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/50">
-            <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">{eventForm.id ? 'แก้ไขกิจกรรม' : 'สร้างกิจกรรม'}</h2><div className="w-10"></div></div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex flex-col animate-in slide-in-from-bottom duration-200 md:items-center md:justify-center md:bg-black/40">
+            <div className="bg-gradient-to-b from-white to-gray-50 w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden md:drop-shadow-2xl">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"><X size={24}/></button><h2 className="text-base font-bold text-gray-800">{eventForm.id ? 'แก้ไขกิจกรรม' : 'สร้างกิจกรรม'}</h2><div className="w-10"></div></div>
                 <div className="flex-1 p-6 overflow-y-auto">
                   <div className="mb-4"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อทริป / กิจกรรม</label><input type="text" autoFocus value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 outline-none focus:border-blue-500" placeholder="..."/></div>
                   <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">วันที่</label><input type="date" value={eventForm.date} onChange={e => setEventForm({...eventForm, date: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:border-blue-500"/></div>
@@ -1703,22 +1773,22 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveEvent} disabled={loading} className="w-full bg-blue-600 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">{loading ? '...' : 'บันทึก'}</button></div>
+                <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={handleSaveEvent} disabled={loading} className="w-full bg-blue-600 text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all hover:shadow-xl hover:bg-blue-700">{loading ? '...' : 'บันทึก'}</button></div>
             </div>
           </div>
         )}
 
         {/* MODAL: MANAGE PROFILE */}
         {modalMode === 'edit-profile' && (
-          <div className="fixed inset-0 bg-gray-50 z-[60] flex flex-col animate-in slide-in-from-right duration-200 md:items-center md:justify-center md:bg-black/50 md:slide-in-from-bottom">
-             <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-                 <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">แก้ไขโปรไฟล์</h2><div className="w-10"></div></div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex flex-col animate-in slide-in-from-right duration-200 md:items-center md:justify-center md:bg-black/40 md:slide-in-from-bottom">
+             <div className="bg-gradient-to-b from-white to-gray-50 w-full h-full md:h-auto md:max-w-md md:rounded-3xl flex flex-col shadow-2xl overflow-hidden md:drop-shadow-2xl">
+                 <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={() => setModalMode(null)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"><ArrowRight size={24} className="rotate-180 md:rotate-0 md:hidden"/><X size={24} className="hidden md:block"/></button><h2 className="text-base font-bold text-gray-800">แก้ไขโปรไฟล์</h2><div className="w-10"></div></div>
                  <div className="flex-1 p-6 space-y-6 overflow-y-auto">
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ชื่อเล่น</label><input type="text" value={profileForm.name} onChange={e => setProfileForm({...profileForm, name: e.target.value})} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 font-semibold text-gray-800 outline-none focus:border-blue-500" placeholder="ชื่อของคุณ"/></div>
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ไอคอนประจำตัว</label><div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">{iconsList.map(icon => (<button key={icon} onClick={() => setProfileForm({...profileForm, icon})} className={`w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 transition-all flex-shrink-0 bg-white ${profileForm.icon === icon ? `border-${themeColor.theme}-500 bg-${themeColor.theme}-50` : 'border-gray-200'}`}>{icon}</button>))}</div></div>
                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">ธีมสีหลัก</label><div className="grid grid-cols-5 gap-3">{colorsList.map(c => (<button key={c.id} onClick={() => setProfileForm({...profileForm, theme: c.id})} className={`h-10 rounded-xl bg-gradient-to-br ${c.class} transition-all ${profileForm.theme === c.id ? 'ring-4 ring-offset-2 ring-gray-300 scale-105' : 'opacity-70 grayscale'}`}/>))}</div></div>
                  </div>
-                 <div className="p-4 border-t border-gray-200 bg-white"><button onClick={handleSaveProfile} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all`}>{loading ? '...' : 'บันทึก'}</button></div>
+                 <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-white to-gray-50"><button onClick={handleSaveProfile} disabled={loading} className={`w-full ${themeColor.accent} text-white h-12 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all hover:shadow-xl`}>{loading ? '...' : 'บันทึก'}</button></div>
              </div>
           </div>
         )}
