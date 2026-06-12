@@ -1336,7 +1336,7 @@ export default function App() {
 
         {/* ... (Other Views: Planning, Bills, Debts... Kept same but wrapper updated) ... */}
         {viewMode === 'planning' && (
-           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
+           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-24 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
              <div className="max-w-4xl mx-auto w-full">
                <div className="mb-8">
                  <div className="flex items-center justify-between mb-4">
@@ -1392,7 +1392,7 @@ export default function App() {
         )}
 
         {viewMode === 'bills' && currentProfile === 'family' && (
-           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
+           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-24 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
              <div className="max-w-4xl mx-auto w-full">
                <div className="flex items-center justify-between mb-4">
                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><CheckSquare className="text-purple-600"/> บิลกลาง (รอจ่าย)</h2>
@@ -1427,7 +1427,7 @@ export default function App() {
         )}
 
         {viewMode === 'debts' && (
-           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
+           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-24 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
              <div className="max-w-4xl mx-auto w-full">
                <div className="flex items-center justify-between mb-4">
                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-orange-600"/> สมุดหนี้สิน</h2>
@@ -1459,7 +1459,7 @@ export default function App() {
 
         {/* ... (Report View) ... */}
         {viewMode === 'report' && (
-           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 md:pb-5 animate-in fade-in zoom-in-95 duration-300 md:p-8">
+           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-24 md:pb-5 animate-in fade-in zoom-in-95 duration-300 md:p-8">
              <div className="max-w-5xl mx-auto w-full">
                <div className="flex items-center justify-between mb-6">
                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><BarChart3 className="text-blue-600"/> สรุปผล</h2>
@@ -1596,11 +1596,11 @@ export default function App() {
                           </button>
                       </div>
                       
-                      <div className="grid grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2">
+                      <div className="grid grid-cols-4 gap-2">
                           {(transactionForm.type === 'expense' ? expenseCategories : incomeCategories).map(cat => (
-                              <button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}>
-                                  <span className="text-2xl">{cat.icon}</span>
-                                  <span className="text-[10px] font-bold">{cat.name}</span>
+                              <button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1.5 py-3 px-1 rounded-2xl border-2 transition-all active:scale-95 ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
+                                  <span className="text-3xl">{cat.icon}</span>
+                                  <span className="text-[10px] font-bold text-center leading-tight">{cat.name}</span>
                               </button>
                           ))}
                       </div>
