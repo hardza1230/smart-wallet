@@ -1497,28 +1497,48 @@ export default function App() {
         )}
 
         {/* BOTTOM NAV (MOBILE ONLY) */}
-        <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-gray-200 shadow-2xl rounded-full px-2 py-2 flex gap-4 z-50">
-          <button onClick={() => setViewMode('dashboard')} className={`p-2 rounded-full transition-all ${viewMode === 'dashboard' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}><Home size={20} /></button>
-          <button onClick={() => setViewMode('planning')} className={`p-2 rounded-full transition-all ${viewMode === 'planning' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400'}`}><CalendarHeart size={20} /></button>
-          {currentProfile === 'family' ? (
-            <button onClick={() => setViewMode('bills')} className={`p-2 rounded-full transition-all ${viewMode === 'bills' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400'}`}><CheckSquare size={20} /></button>
-          ) : (
-            <button onClick={() => setViewMode('debts')} className={`p-2 rounded-full transition-all ${viewMode === 'debts' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-400'}`}><BookOpen size={20} /></button>
-          )}
-          <button onClick={() => setViewMode('report')} className={`p-2 rounded-full transition-all ${viewMode === 'report' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><PieChart size={20} /></button>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/97 backdrop-blur-xl border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] z-50">
+          <div className="flex items-end justify-around px-1 pt-1 pb-2">
+            <button onClick={() => setViewMode('dashboard')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+              <Home size={23} className={viewMode === 'dashboard' ? 'text-gray-900' : 'text-gray-400'} strokeWidth={viewMode === 'dashboard' ? 2.5 : 1.5}/>
+              <span className={`text-[10px] font-bold leading-none ${viewMode === 'dashboard' ? 'text-gray-900' : 'text-gray-400'}`}>หน้าหลัก</span>
+            </button>
+            <button onClick={() => setViewMode('report')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+              <BarChart3 size={23} className={viewMode === 'report' ? 'text-blue-600' : 'text-gray-400'} strokeWidth={viewMode === 'report' ? 2.5 : 1.5}/>
+              <span className={`text-[10px] font-bold leading-none ${viewMode === 'report' ? 'text-blue-600' : 'text-gray-400'}`}>รายงาน</span>
+            </button>
+            <div className="flex flex-col items-center py-1 px-2">
+              {currentProfile !== 'family' ? (
+                <button onClick={() => handleOpenTransaction('expense')} className={`w-14 h-14 -mt-6 rounded-full shadow-xl flex items-center justify-center ${themeColor.accent} text-white ring-4 ring-white active:scale-95 transition-all`}>
+                  <Plus size={28} strokeWidth={2.5}/>
+                </button>
+              ) : <div className="w-14 h-8"/>}
+            </div>
+            <button onClick={() => setViewMode('planning')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+              <CalendarHeart size={23} className={viewMode === 'planning' ? 'text-pink-600' : 'text-gray-400'} strokeWidth={viewMode === 'planning' ? 2.5 : 1.5}/>
+              <span className={`text-[10px] font-bold leading-none ${viewMode === 'planning' ? 'text-pink-600' : 'text-gray-400'}`}>วางแผน</span>
+            </button>
+            {currentProfile === 'family' ? (
+              <button onClick={() => setViewMode('bills')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+                <CheckSquare size={23} className={viewMode === 'bills' ? 'text-purple-600' : 'text-gray-400'} strokeWidth={viewMode === 'bills' ? 2.5 : 1.5}/>
+                <span className={`text-[10px] font-bold leading-none ${viewMode === 'bills' ? 'text-purple-600' : 'text-gray-400'}`}>บิลกลาง</span>
+              </button>
+            ) : (
+              <button onClick={() => setViewMode('debts')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+                <BookOpen size={23} className={viewMode === 'debts' ? 'text-orange-600' : 'text-gray-400'} strokeWidth={viewMode === 'debts' ? 2.5 : 1.5}/>
+                <span className={`text-[10px] font-bold leading-none ${viewMode === 'debts' ? 'text-orange-600' : 'text-gray-400'}`}>หนี้สิน</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* FAB */}
-        {currentProfile !== 'family' && viewMode === 'dashboard' && (
-          <>
-            {isFabOpen && <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] animate-in fade-in" onClick={() => setIsFabOpen(false)}></div>}
-            <div className={`fixed bottom-40 right-6 flex flex-col gap-3 z-50 items-end transition-all duration-300 md:bottom-12 md:right-12 ${isFabOpen ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายรับ</span><button onClick={() => handleOpenTransaction('income')} className="w-10 h-10 bg-green-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingUp size={18} /></button></div>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">โอนเงิน</span><button onClick={() => handleOpenTransaction('transfer')} className="w-10 h-10 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"><ArrowRightLeft size={18} /></button></div>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายจ่าย</span><button onClick={() => handleOpenTransaction('expense')} className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingDown size={18} /></button></div>
-            </div>
-            <button onClick={() => setIsFabOpen(!isFabOpen)} className={`fixed bottom-24 right-6 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 z-50 ring-4 ring-white md:hidden ${isFabOpen ? 'bg-gray-200 text-gray-600 rotate-45' : `${themeColor.accent} text-white hover:scale-105 active:scale-95`}`}><Plus size={28} /></button>
-          </>
+        {/* Desktop Quick Add (sidebar has its own button, this is extra for convenience) */}
+        {currentProfile !== 'family' && (
+          <div className="hidden md:flex fixed bottom-12 right-12 flex-col gap-3 z-50 items-end">
+            <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายรับ</span><button onClick={() => handleOpenTransaction('income')} className="w-10 h-10 bg-green-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all"><TrendingUp size={18} /></button></div>
+            <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">โอนเงิน</span><button onClick={() => handleOpenTransaction('transfer')} className="w-10 h-10 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all"><ArrowRightLeft size={18} /></button></div>
+            <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายจ่าย</span><button onClick={() => handleOpenTransaction('expense')} className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all"><TrendingDown size={18} /></button></div>
+          </div>
         )}
 
         {/* MODAL: ADD/EDIT TRANSACTION */}
@@ -1532,10 +1552,10 @@ export default function App() {
                 </div>
                 <div className="flex-1 p-6 overflow-y-auto">
                   {!transactionForm.id && (
-                      <div className="bg-white p-1 rounded-xl flex font-bold text-xs mb-6 shadow-sm border border-gray-100">
-                        <button onClick={() => setTransactionForm(p => ({...p, type: 'expense'}))} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${transactionForm.type === 'expense' ? 'bg-red-50 text-red-600 shadow-sm' : 'text-gray-400'}`}><TrendingDown size={14}/> รายจ่าย</button>
-                        <button onClick={() => setTransactionForm(p => ({...p, type: 'transfer'}))} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${transactionForm.type === 'transfer' ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-400'}`}><ArrowRightLeft size={14}/> โอนเงิน</button>
-                        <button onClick={() => setTransactionForm(p => ({...p, type: 'income'}))} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${transactionForm.type === 'income' ? 'bg-green-50 text-green-600 shadow-sm' : 'text-gray-400'}`}><TrendingUp size={14}/> รายรับ</button>
+                      <div className="bg-gray-100 p-1.5 rounded-2xl flex font-bold text-sm mb-5">
+                        <button onClick={() => setTransactionForm(p => ({...p, type: 'expense'}))} className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all ${transactionForm.type === 'expense' ? 'bg-white text-red-600 shadow-md' : 'text-gray-400'}`}><TrendingDown size={16}/> รายจ่าย</button>
+                        <button onClick={() => setTransactionForm(p => ({...p, type: 'transfer'}))} className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all ${transactionForm.type === 'transfer' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-400'}`}><ArrowRightLeft size={16}/> โอนเงิน</button>
+                        <button onClick={() => setTransactionForm(p => ({...p, type: 'income'}))} className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all ${transactionForm.type === 'income' ? 'bg-white text-green-600 shadow-md' : 'text-gray-400'}`}><TrendingUp size={16}/> รายรับ</button>
                       </div>
                   )}
                   <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label><div className="relative flex gap-2"><div className="relative flex-1"><input type="number" inputMode="decimal" autoFocus value={transactionForm.amount} onChange={(e) => setTransactionForm(p => ({...p, amount: e.target.value}))} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${transactionForm.type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : transactionForm.type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/><span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span></div><button onClick={() => setShowCalculator(true)} className="p-3 bg-gray-100 rounded-xl text-gray-600 hover:bg-gray-200"><Calculator size={24}/></button></div></div>
