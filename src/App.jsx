@@ -526,6 +526,23 @@ export default function App() {
     return { income, expense, sortedCats: Object.entries(catStats).sort((a, b) => b[1] - a[1]) };
   }, [displayTransactions, visibleWallets]);
 
+  const groupedTransactions = useMemo(() => {
+  const groups = {};
+  allWalletsTransactions.forEach(t => {
+    const date = new Date(t.timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    let key;
+    if (date.toDateString() === today.toDateString()) key = 'วันนี้';
+    else if (date.toDateString() === yesterday.toDateString()) key = 'เมื่อวาน';
+    else key = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', weekday: 'short' });
+    if (!groups[key]) groups[key] = { label: key, transactions: [], ts: t.timestamp };
+    groups[key].transactions.push(t);
+  });
+  return Object.values(groups).sort((a, b) => b.ts - a.ts);
+}, [allWalletsTransactions]);
+
   const getCategorySpent = (catName) => transactions.filter(t => {
         const txDate = new Date(t.timestamp);
         return t.category === catName && t.type === 'expense' && !t.isTransfer && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear && visibleWallets.some(w => w.id === t.walletId);
@@ -1017,7 +1034,7 @@ export default function App() {
 
         {/* === DASHBOARD VIEW === */}
         {viewMode === 'dashboard' && (
-          <div className="flex-1 flex flex-col transition-all duration-300 pb-32 md:pb-0 opacity-100 overflow-y-auto md:overflow-hidden">
+          <div className="flex-1 flex flex-col transition-all duration-300 pb-24 md:pb-0 opacity-100 overflow-y-auto md:overflow-hidden">
             
             {/* Desktop: Title Area */}
             <div className="hidden md:block pt-8 px-8 pb-4">
@@ -1027,7 +1044,57 @@ export default function App() {
 
             <div className="flex-1 md:overflow-y-auto md:p-8">
               <div className="max-w-5xl mx-auto w-full">
-                
+
+                {/* MOBILE HERO: Balance Card */}
+                <div className="md:hidden px-4 pt-1 pb-4">
+                  <div className={`bg-gradient-to-br ${themeColor.class} rounded-3xl p-5 shadow-xl relative overflow-hidden`}>
+                    <div className="absolute -right-4 -top-4 w-32 h-32 rounded-full bg-white/5"/>
+                    <div className="absolute -right-2 -bottom-6 w-24 h-24 rounded-full bg-white/5"/>
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <p className="text-white/70 text-xs font-semibold uppercase tracking-wider">สินทรัพย์รวม</p>
+                        <h2 className="text-4xl font-bold text-white tracking-tight mt-1">
+                          {privacyMode ? '••••••' : `฿${totalWealth.toLocaleString()}`}
+                        </h2>
+                      </div>
+                      <button onClick={() => setPrivacyMode(!privacyMode)} className="p-2 bg-white/20 rounded-xl">
+                        {privacyMode ? <EyeOff size={18} className="text-white"/> : <Eye size={18} className="text-white"/>}
+                      </button>
+                    </div>
+                    <div className="flex gap-3 pt-3 border-t border-white/20">
+                      <div className="flex-1 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                          <TrendingUp size={14} className="text-white"/>
+                        </div>
+                        <div>
+                          <p className="text-white/60 text-[10px]">รายรับ</p>
+                          <p className="text-white text-sm font-bold">{privacyMode ? '•••' : `฿${reportStats.income.toLocaleString()}`}</p>
+                        </div>
+                      </div>
+                      <div className="flex-1 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                          <TrendingDown size={14} className="text-white"/>
+                        </div>
+                        <div>
+                          <p className="text-white/60 text-[10px]">รายจ่าย</p>
+                          <p className="text-white text-sm font-bold">{privacyMode ? '•••' : `฿${reportStats.expense.toLocaleString()}`}</p>
+                        </div>
+                      </div>
+                      {totalMonthlyBudget > 0 && (
+                        <div className="flex-1 flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                            <Target size={14} className="text-white"/>
+                          </div>
+                          <div>
+                            <p className="text-white/60 text-[10px]">ใช้ได้/วัน</p>
+                            <p className="text-white text-sm font-bold">{privacyMode ? '•••' : `฿${Math.floor(dailyBudget).toLocaleString()}`}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Pending Bills Alert */}
                 {myPendingBills.length > 0 && (
                   <div className="px-5 pt-4 md:px-0 md:pt-0 md:mb-6">
@@ -1102,68 +1169,77 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Wallets (Vertical List UI) */}
-                        <div className="pt-6 pb-4 md:px-0 md:pt-8">
-                          <div className="px-5 mb-4 md:px-0 flex justify-between items-center">
-                            <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">
+                        {/* Wallets */}
+                        <div className="pt-4 pb-4 md:px-0 md:pt-8">
+                          {/* Desktop wallet grid */}
+                          <div className="hidden md:block">
+                            <div className="px-5 mb-4 md:px-0 flex justify-between items-center">
+                              <span className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">
                                 💼 กระเป๋าเงิน
-                            </span>
-                            <div className="flex gap-2">
-                                {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 border-0 font-bold shadow-md hover:shadow-lg transition-all"><Plus size={14} /> สร้างใหม่</button>)}
+                              </span>
+                              <div className="flex gap-2">
+                                {currentProfile !== 'family' && (<button onClick={openCreateWallet} className="text-[10px] bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1.5 rounded-full flex items-center gap-1 font-bold shadow-md"><Plus size={14}/> สร้างใหม่</button>)}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-3 px-0 pb-4">
+                              {visibleWallets.length === 0 ? (
+                                <div className="col-span-4 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
+                              ) : visibleWallets.map((wallet) => {
+                                const isActive = wallet.id === activeWalletId;
+                                const balance = calculateBalance(wallet);
+                                const dailyChange = calculateDailyChange(wallet.id);
+                                const ownerProfile = appProfiles[wallet.owner];
+                                return (
+                                  <div key={wallet.id} className="relative">
+                                    <button onClick={() => setActiveWalletId(wallet.id)} className={`relative w-full min-h-[85px] rounded-xl overflow-hidden flex flex-col justify-between p-2.5 transition-all ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 shadow-md scale-105' : 'shadow-sm opacity-90 hover:opacity-100 hover:shadow-md'}`} style={{ backgroundColor: wallet.color }}>
+                                      <div className="flex items-center gap-1.5"><span className="text-2xl">{wallet.icon}</span><div><p className="text-[9px] uppercase font-bold text-white/90">{wallet.name}</p><p className="text-[7px] text-white/60">{ownerProfile?.name}</p></div></div>
+                                      <div className="text-right"><span className="text-base font-bold text-white">{privacyMode ? '•••' : `฿${balance.toLocaleString()}`}</span>{!privacyMode && dailyChange !== 0 && <span className={`text-[7px] block ${dailyChange > 0 ? 'text-green-200' : 'text-red-200'}`}>{dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()}</span>}</div>
+                                    </button>
+                                    {isActive && currentProfile !== 'family' && <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-1.5 right-1.5 p-1.5 bg-black/30 rounded-full text-white cursor-pointer z-20"><Settings size={11}/></div>}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 px-5 pb-4 md:px-0 md:grid-cols-4 md:gap-3 lg:gap-4">
-                            {visibleWallets.length === 0 ? (
-                              <div className="w-full md:col-span-4 h-20 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 text-xs">ไม่พบกระเป๋าเงิน</div>
-                            ) : visibleWallets.map((wallet, index) => {
-                              const isActive = wallet.id === activeWalletId;
-                              const balance = calculateBalance(wallet);
-                              const dailyChange = calculateDailyChange(wallet.id);
-                              
-                              const isNegative = balance < 0;
-                              const balanceColor = isNegative ? 'text-red-200' : 'text-white';
-                              const ownerProfile = appProfiles[wallet.owner];
 
-                              return (
-                                <div 
-                                    key={wallet.id} 
-                                    className="relative w-full"
-                                >
-                                  <button 
-                                    onClick={() => setActiveWalletId(wallet.id)} 
-                                    className={`relative w-full h-auto min-h-[75px] rounded-xl overflow-hidden transition-all duration-300 flex flex-col justify-between p-2.5 md:min-h-[85px] md:p-2.5 lg:p-3 ${isActive ? 'ring-2 ring-offset-1 ring-gray-400 shadow-md scale-105' : 'shadow-sm opacity-90 hover:opacity-100 hover:shadow-md hover:scale-[1.02]'}`} 
-                                    style={{ backgroundColor: wallet.color, color: 'white' }}
-                                  >
-                                    {/* Top Section: Icon & Name */}
-                                    <div className="flex items-center gap-2 z-10 w-full">
-                                        <div className="relative flex-shrink-0">
-                                            <span className="text-3xl drop-shadow-md">{wallet.icon}</span>
-                                        </div>
-                                        <div className="text-left min-w-0 flex-1">
-                                            <p className="text-[9px] uppercase font-bold opacity-90 leading-tight">{wallet.name}</p>
-                                            <p className="text-[7px] opacity-70 leading-none">ของ {ownerProfile?.name || 'Unknown'}</p>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Bottom Section: Balance */}
-                                    <div className="text-right z-10 mt-1.5">
-                                        <span className={`text-lg font-bold tracking-tight block leading-tight ${balanceColor}`}>{privacyMode ? '••••••' : `฿${balance.toLocaleString()}`}</span>
-                                        {!privacyMode && dailyChange !== 0 && (
-                                          <span className={`text-[7px] mt-0.5 block font-semibold ${dailyChange > 0 ? 'text-green-100' : 'text-red-100'}`}>
-                                            {dailyChange > 0 ? '▲ +' : '▼ '}{Math.abs(dailyChange).toLocaleString()}
-                                          </span>
+                          {/* Mobile wallet carousel */}
+                          <div className="md:hidden">
+                            <div className="px-4 mb-3 flex justify-between items-center">
+                              <span className="text-sm font-bold text-gray-800">💼 กระเป๋าเงิน</span>
+                              {currentProfile !== 'family' && <button onClick={openCreateWallet} className="text-xs text-blue-600 font-bold flex items-center gap-1"><Plus size={14}/> เพิ่ม</button>}
+                            </div>
+                            <div className="flex gap-3 overflow-x-auto px-4 pb-3 no-scrollbar snap-x snap-mandatory">
+                              {visibleWallets.length === 0 ? (
+                                <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center text-gray-400 text-xs">ยังไม่มีกระเป๋า</div>
+                              ) : visibleWallets.map((wallet) => {
+                                const isActive = wallet.id === activeWalletId;
+                                const balance = calculateBalance(wallet);
+                                const dailyChange = calculateDailyChange(wallet.id);
+                                const isNeg = balance < 0;
+                                return (
+                                  <div key={wallet.id} className="flex-shrink-0 snap-center" style={{width: '65vw', maxWidth: '220px'}}>
+                                    <button onClick={() => setActiveWalletId(wallet.id)} className={`relative w-full h-36 rounded-2xl flex flex-col justify-between p-4 shadow-lg transition-all duration-300 ${isActive ? 'shadow-2xl scale-100' : 'opacity-75 scale-95'}`} style={{backgroundColor: wallet.color}}>
+                                      <div className="flex justify-between items-start">
+                                        <span className="text-3xl">{wallet.icon}</span>
+                                        {isActive && currentProfile !== 'family' && (
+                                          <button onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="p-1.5 bg-black/20 rounded-full"><Settings size={12} className="text-white"/></button>
                                         )}
-                                    </div>
-                                  </button>
-                                  
-                                  {isActive && currentProfile !== 'family' && (
-                                    <div onClick={(e) => {e.stopPropagation(); openEditWallet(wallet)}} className="absolute top-2 right-2 p-1.5 bg-black/30 rounded-full text-white hover:bg-black/50 cursor-pointer z-20 transition-all duration-200 hover:scale-125">
-                                        <Settings size={12} />
-                                    </div>
-                                  )}
+                                      </div>
+                                      <div>
+                                        <p className="text-white/80 text-xs font-semibold uppercase tracking-wide">{wallet.name}</p>
+                                        <p className={`text-2xl font-bold tracking-tight ${isNeg ? 'text-red-200' : 'text-white'}`}>{privacyMode ? '••••••' : `฿${balance.toLocaleString()}`}</p>
+                                        {!privacyMode && dailyChange !== 0 && <p className={`text-xs font-semibold mt-0.5 ${dailyChange > 0 ? 'text-green-200' : 'text-red-200'}`}>{dailyChange > 0 ? '+' : ''}{dailyChange.toLocaleString()} วันนี้</p>}
+                                      </div>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                              {currentProfile !== 'family' && (
+                                <div className="flex-shrink-0 snap-center" style={{width: '40vw', maxWidth: '140px'}}>
+                                  <button onClick={openCreateWallet} className="w-full h-36 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 gap-2 bg-gray-50/50"><Plus size={22}/><span className="text-xs font-bold">เพิ่มกระเป๋า</span></button>
                                 </div>
-                              );
-                            })}
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -1203,31 +1279,52 @@ export default function App() {
                             <button onClick={() => changeMonth(1)} className="p-1 hover:bg-gray-200 rounded-full"><ChevronRight size={16} className="text-gray-500"/></button>
                         </div>
 
-                        {/* Transactions List */}
+                        {/* Transactions List - grouped by date */}
                         <div className="px-5 pt-2 md:px-0 md:flex-1 md:overflow-y-auto md:pr-2">
-                          <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-l-4 border-gray-800 pl-2"><Activity size={16}/> รายการล่าสุด (ทุกกระเป๋า)</h3>
-                          {allWalletsTransactions.length === 0 ? (
-                             <div className="py-8 flex flex-col items-center justify-center text-gray-400 gap-2 border border-dashed border-gray-300 rounded-xl bg-gray-50/50"><Wallet size={20} className="opacity-50"/><p className="text-[10px]">ยังไม่มีรายการในเดือนนี้</p></div>
+                          <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-l-4 border-gray-800 pl-2"><Activity size={16}/> รายการ (ทุกกระเป๋า)</h3>
+                          {groupedTransactions.length === 0 ? (
+                            <div className="py-12 flex flex-col items-center justify-center text-gray-400 gap-2 border border-dashed border-gray-300 rounded-2xl bg-gray-50/50">
+                              <Wallet size={24} className="opacity-30"/>
+                              <p className="text-xs font-medium">ยังไม่มีรายการในเดือนนี้</p>
+                              {currentProfile !== 'family' && <button onClick={() => handleOpenTransaction('expense')} className="mt-1 text-xs text-blue-600 font-bold">+ เพิ่มรายการแรก</button>}
+                            </div>
                           ) : (
-                             <div className="space-y-2">
-                               {allWalletsTransactions.map(t => (
-                                 <div key={t.id} onClick={() => handleOpenTransaction(t.type, t)} className="bg-gradient-to-r from-white to-gray-50 p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 active:scale-[0.99] transition-all duration-200 hover:border-blue-300 hover:shadow-lg hover:scale-[1.01] cursor-pointer group">
-                                    <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-lg ${t.type === 'income' ? 'bg-green-100' : t.type === 'transfer' ? 'bg-blue-100' : 'bg-red-100'}`}>{t.type === 'transfer' ? <ArrowRightLeft size={14} className="text-blue-600"/> : (t.type === 'income' ? (incomeCategories.find(c => c.name === t.category)?.icon || '💰') : (expenseCategories.find(c => c.name === t.category)?.icon || '💸'))}</div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex justify-between items-baseline"><span className="font-semibold text-gray-800 text-xs truncate">{t.category} {t.note && <span className="text-gray-400 font-normal ml-1 text-[10px]">{t.note}</span>}</span><span className={`font-bold text-xs ${t.type === 'income' ? 'text-green-700' : t.type === 'transfer' ? 'text-blue-700' : 'text-red-600'}`}>{t.type === 'income' ? '+' : '-'} {privacyMode ? '•••' : t.amount.toLocaleString()}</span></div>
-                                      <div className="flex justify-between mt-0.5 items-center">
-                                          <div className="flex items-center gap-1">
-                                              <span className="text-[9px] text-gray-400">{t.dateDisplay}</span>
-                                              <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1" style={{ backgroundColor: t.walletColor + '20', color: t.walletColor }}>
-                                                  <span>{t.walletIcon}</span> {t.walletName}
-                                              </span>
-                                          </div>
-                                          {currentProfile !== 'family' && <span className="text-[9px] text-gray-300 md:opacity-0 md:group-hover:opacity-100 transition-opacity">แตะเพื่อแก้ไข</span>}
+                            <div className="space-y-4">
+                              {groupedTransactions.map(group => {
+                                const dayIncome = group.transactions.filter(t => t.type === 'income' && !t.isTransfer).reduce((s, t) => s + t.amount, 0);
+                                const dayExpense = group.transactions.filter(t => t.type === 'expense' && !t.isTransfer).reduce((s, t) => s + t.amount, 0);
+                                return (
+                                  <div key={group.label}>
+                                    <div className="flex justify-between items-center mb-2">
+                                      <span className="text-xs font-bold text-gray-500">{group.label}</span>
+                                      <div className="flex gap-2 text-[10px]">
+                                        {dayIncome > 0 && <span className="text-green-600 font-bold">+{dayIncome.toLocaleString()}</span>}
+                                        {dayExpense > 0 && <span className="text-red-500 font-bold">-{dayExpense.toLocaleString()}</span>}
                                       </div>
                                     </div>
-                                 </div>
-                               ))}
-                             </div>
+                                    <div className="space-y-1.5">
+                                      {group.transactions.map(t => (
+                                        <div key={t.id} onClick={() => handleOpenTransaction(t.type, t)} className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 active:scale-[0.98] transition-all cursor-pointer hover:border-gray-200 hover:shadow-md">
+                                          <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-lg ${t.type === 'income' ? 'bg-green-50' : t.type === 'transfer' ? 'bg-blue-50' : 'bg-red-50'}`}>
+                                            {t.type === 'transfer' ? <ArrowRightLeft size={16} className="text-blue-500"/> : (t.type === 'income' ? (incomeCategories.find(c => c.name === t.category)?.icon || '💰') : (expenseCategories.find(c => c.name === t.category)?.icon || '💸'))}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-center">
+                                              <span className="font-semibold text-gray-800 text-sm truncate">{t.category}</span>
+                                              <span className={`font-bold text-sm ml-2 flex-shrink-0 ${t.type === 'income' ? 'text-green-600' : t.type === 'transfer' ? 'text-blue-600' : 'text-red-500'}`}>{t.type === 'income' ? '+' : '-'}{privacyMode ? '•••' : t.amount.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                              {t.note && <span className="text-gray-400 text-xs truncate">{t.note}</span>}
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0" style={{backgroundColor: t.walletColor + '20', color: t.walletColor}}>{t.walletIcon} {t.walletName}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
                     </div>
@@ -1239,7 +1336,7 @@ export default function App() {
 
         {/* ... (Other Views: Planning, Bills, Debts... Kept same but wrapper updated) ... */}
         {viewMode === 'planning' && (
-           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
+           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-24 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
              <div className="max-w-4xl mx-auto w-full">
                <div className="mb-8">
                  <div className="flex items-center justify-between mb-4">
@@ -1295,7 +1392,7 @@ export default function App() {
         )}
 
         {viewMode === 'bills' && currentProfile === 'family' && (
-           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
+           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-24 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
              <div className="max-w-4xl mx-auto w-full">
                <div className="flex items-center justify-between mb-4">
                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><CheckSquare className="text-purple-600"/> บิลกลาง (รอจ่าย)</h2>
@@ -1330,7 +1427,7 @@ export default function App() {
         )}
 
         {viewMode === 'debts' && (
-           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
+           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-24 md:pb-5 animate-in fade-in zoom-in-95 duration-300 bg-gray-50/50 md:p-8">
              <div className="max-w-4xl mx-auto w-full">
                <div className="flex items-center justify-between mb-4">
                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-orange-600"/> สมุดหนี้สิน</h2>
@@ -1362,7 +1459,7 @@ export default function App() {
 
         {/* ... (Report View) ... */}
         {viewMode === 'report' && (
-           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-32 md:pb-5 animate-in fade-in zoom-in-95 duration-300 md:p-8">
+           <div className="flex-1 flex flex-col p-5 overflow-y-auto pb-24 md:pb-5 animate-in fade-in zoom-in-95 duration-300 md:p-8">
              <div className="max-w-5xl mx-auto w-full">
                <div className="flex items-center justify-between mb-6">
                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><BarChart3 className="text-blue-600"/> สรุปผล</h2>
@@ -1400,28 +1497,48 @@ export default function App() {
         )}
 
         {/* BOTTOM NAV (MOBILE ONLY) */}
-        <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-gray-200 shadow-2xl rounded-full px-2 py-2 flex gap-4 z-50">
-          <button onClick={() => setViewMode('dashboard')} className={`p-2 rounded-full transition-all ${viewMode === 'dashboard' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}><Home size={20} /></button>
-          <button onClick={() => setViewMode('planning')} className={`p-2 rounded-full transition-all ${viewMode === 'planning' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400'}`}><CalendarHeart size={20} /></button>
-          {currentProfile === 'family' ? (
-            <button onClick={() => setViewMode('bills')} className={`p-2 rounded-full transition-all ${viewMode === 'bills' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400'}`}><CheckSquare size={20} /></button>
-          ) : (
-            <button onClick={() => setViewMode('debts')} className={`p-2 rounded-full transition-all ${viewMode === 'debts' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-400'}`}><BookOpen size={20} /></button>
-          )}
-          <button onClick={() => setViewMode('report')} className={`p-2 rounded-full transition-all ${viewMode === 'report' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><PieChart size={20} /></button>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/97 backdrop-blur-xl border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] z-50">
+          <div className="flex items-end justify-around px-1 pt-1 pb-2">
+            <button onClick={() => setViewMode('dashboard')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+              <Home size={23} className={viewMode === 'dashboard' ? 'text-gray-900' : 'text-gray-400'} strokeWidth={viewMode === 'dashboard' ? 2.5 : 1.5}/>
+              <span className={`text-[10px] font-bold leading-none ${viewMode === 'dashboard' ? 'text-gray-900' : 'text-gray-400'}`}>หน้าหลัก</span>
+            </button>
+            <button onClick={() => setViewMode('report')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+              <BarChart3 size={23} className={viewMode === 'report' ? 'text-blue-600' : 'text-gray-400'} strokeWidth={viewMode === 'report' ? 2.5 : 1.5}/>
+              <span className={`text-[10px] font-bold leading-none ${viewMode === 'report' ? 'text-blue-600' : 'text-gray-400'}`}>รายงาน</span>
+            </button>
+            <div className="flex flex-col items-center py-1 px-2">
+              {currentProfile !== 'family' ? (
+                <button onClick={() => handleOpenTransaction('expense')} className={`w-14 h-14 -mt-6 rounded-full shadow-xl flex items-center justify-center ${themeColor.accent} text-white ring-4 ring-white active:scale-95 transition-all`}>
+                  <Plus size={28} strokeWidth={2.5}/>
+                </button>
+              ) : <div className="w-14 h-8"/>}
+            </div>
+            <button onClick={() => setViewMode('planning')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+              <CalendarHeart size={23} className={viewMode === 'planning' ? 'text-pink-600' : 'text-gray-400'} strokeWidth={viewMode === 'planning' ? 2.5 : 1.5}/>
+              <span className={`text-[10px] font-bold leading-none ${viewMode === 'planning' ? 'text-pink-600' : 'text-gray-400'}`}>วางแผน</span>
+            </button>
+            {currentProfile === 'family' ? (
+              <button onClick={() => setViewMode('bills')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+                <CheckSquare size={23} className={viewMode === 'bills' ? 'text-purple-600' : 'text-gray-400'} strokeWidth={viewMode === 'bills' ? 2.5 : 1.5}/>
+                <span className={`text-[10px] font-bold leading-none ${viewMode === 'bills' ? 'text-purple-600' : 'text-gray-400'}`}>บิลกลาง</span>
+              </button>
+            ) : (
+              <button onClick={() => setViewMode('debts')} className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] active:opacity-70 transition-opacity">
+                <BookOpen size={23} className={viewMode === 'debts' ? 'text-orange-600' : 'text-gray-400'} strokeWidth={viewMode === 'debts' ? 2.5 : 1.5}/>
+                <span className={`text-[10px] font-bold leading-none ${viewMode === 'debts' ? 'text-orange-600' : 'text-gray-400'}`}>หนี้สิน</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* FAB */}
-        {currentProfile !== 'family' && viewMode === 'dashboard' && (
-          <>
-            {isFabOpen && <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] animate-in fade-in" onClick={() => setIsFabOpen(false)}></div>}
-            <div className={`fixed bottom-40 right-6 flex flex-col gap-3 z-50 items-end transition-all duration-300 md:bottom-12 md:right-12 ${isFabOpen ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายรับ</span><button onClick={() => handleOpenTransaction('income')} className="w-10 h-10 bg-green-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingUp size={18} /></button></div>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">โอนเงิน</span><button onClick={() => handleOpenTransaction('transfer')} className="w-10 h-10 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"><ArrowRightLeft size={18} /></button></div>
-              <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายจ่าย</span><button onClick={() => handleOpenTransaction('expense')} className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center"><TrendingDown size={18} /></button></div>
-            </div>
-            <button onClick={() => setIsFabOpen(!isFabOpen)} className={`fixed bottom-24 right-6 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 z-50 ring-4 ring-white md:hidden ${isFabOpen ? 'bg-gray-200 text-gray-600 rotate-45' : `${themeColor.accent} text-white hover:scale-105 active:scale-95`}`}><Plus size={28} /></button>
-          </>
+        {/* Desktop Quick Add (sidebar has its own button, this is extra for convenience) */}
+        {currentProfile !== 'family' && (
+          <div className="hidden md:flex fixed bottom-12 right-12 flex-col gap-3 z-50 items-end">
+            <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายรับ</span><button onClick={() => handleOpenTransaction('income')} className="w-10 h-10 bg-green-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all"><TrendingUp size={18} /></button></div>
+            <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">โอนเงิน</span><button onClick={() => handleOpenTransaction('transfer')} className="w-10 h-10 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all"><ArrowRightLeft size={18} /></button></div>
+            <div className="flex items-center gap-3"><span className="bg-white px-2 py-1 rounded-lg text-[10px] font-bold shadow text-gray-600">รายจ่าย</span><button onClick={() => handleOpenTransaction('expense')} className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all"><TrendingDown size={18} /></button></div>
+          </div>
         )}
 
         {/* MODAL: ADD/EDIT TRANSACTION */}
@@ -1435,10 +1552,10 @@ export default function App() {
                 </div>
                 <div className="flex-1 p-6 overflow-y-auto">
                   {!transactionForm.id && (
-                      <div className="bg-white p-1 rounded-xl flex font-bold text-xs mb-6 shadow-sm border border-gray-100">
-                        <button onClick={() => setTransactionForm(p => ({...p, type: 'expense'}))} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${transactionForm.type === 'expense' ? 'bg-red-50 text-red-600 shadow-sm' : 'text-gray-400'}`}><TrendingDown size={14}/> รายจ่าย</button>
-                        <button onClick={() => setTransactionForm(p => ({...p, type: 'transfer'}))} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${transactionForm.type === 'transfer' ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-400'}`}><ArrowRightLeft size={14}/> โอนเงิน</button>
-                        <button onClick={() => setTransactionForm(p => ({...p, type: 'income'}))} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all ${transactionForm.type === 'income' ? 'bg-green-50 text-green-600 shadow-sm' : 'text-gray-400'}`}><TrendingUp size={14}/> รายรับ</button>
+                      <div className="bg-gray-100 p-1.5 rounded-2xl flex font-bold text-sm mb-5">
+                        <button onClick={() => setTransactionForm(p => ({...p, type: 'expense'}))} className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all ${transactionForm.type === 'expense' ? 'bg-white text-red-600 shadow-md' : 'text-gray-400'}`}><TrendingDown size={16}/> รายจ่าย</button>
+                        <button onClick={() => setTransactionForm(p => ({...p, type: 'transfer'}))} className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all ${transactionForm.type === 'transfer' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-400'}`}><ArrowRightLeft size={16}/> โอนเงิน</button>
+                        <button onClick={() => setTransactionForm(p => ({...p, type: 'income'}))} className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all ${transactionForm.type === 'income' ? 'bg-white text-green-600 shadow-md' : 'text-gray-400'}`}><TrendingUp size={16}/> รายรับ</button>
                       </div>
                   )}
                   <div className="mb-6"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">จำนวนเงิน</label><div className="relative flex gap-2"><div className="relative flex-1"><input type="number" inputMode="decimal" autoFocus value={transactionForm.amount} onChange={(e) => setTransactionForm(p => ({...p, amount: e.target.value}))} placeholder="0" className={`w-full text-5xl font-bold bg-transparent border-b-2 py-2 outline-none transition-colors ${transactionForm.type === 'expense' ? 'text-red-600 border-red-200 focus:border-red-500' : transactionForm.type === 'transfer' ? 'text-blue-600 border-blue-200 focus:border-blue-500' : 'text-green-600 border-green-200 focus:border-green-500'}`}/><span className="absolute right-0 bottom-4 text-gray-400 font-medium text-lg">บาท</span></div><button onClick={() => setShowCalculator(true)} className="p-3 bg-gray-100 rounded-xl text-gray-600 hover:bg-gray-200"><Calculator size={24}/></button></div></div>
@@ -1479,11 +1596,11 @@ export default function App() {
                           </button>
                       </div>
                       
-                      <div className="grid grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2">
+                      <div className="grid grid-cols-4 gap-2">
                           {(transactionForm.type === 'expense' ? expenseCategories : incomeCategories).map(cat => (
-                              <button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all bg-white ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md transform scale-105' : 'border-gray-200 hover:border-gray-300'}`}>
-                                  <span className="text-2xl">{cat.icon}</span>
-                                  <span className="text-[10px] font-bold">{cat.name}</span>
+                              <button key={cat.id} onClick={() => setTransactionForm(p => ({...p, category: cat.name}))} className={`flex flex-col items-center gap-1.5 py-3 px-1 rounded-2xl border-2 transition-all active:scale-95 ${transactionForm.category === cat.name ? 'border-gray-800 bg-gray-50 shadow-md' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
+                                  <span className="text-3xl">{cat.icon}</span>
+                                  <span className="text-[10px] font-bold text-center leading-tight">{cat.name}</span>
                               </button>
                           ))}
                       </div>
