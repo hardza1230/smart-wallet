@@ -526,6 +526,48 @@ export default function App() {
     return { income, expense, sortedCats: Object.entries(catStats).sort((a, b) => b[1] - a[1]) };
   }, [displayTransactions, visibleWallets]);
 
+  // --- Desktop dashboard derived data ---
+  const netSavings = reportStats.income - reportStats.expense;
+  const savingsRate = reportStats.income > 0 ? Math.round((netSavings / reportStats.income) * 100) : 0;
+
+  const monthlyFlow = useMemo(() => {
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const start = d.getTime();
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).getTime();
+      const tx = transactions.filter(t => visibleWallets.some(w => w.id === t.walletId) && !t.isTransfer && t.timestamp >= start && t.timestamp <= end);
+      const income = tx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const expense = tx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      months.push({ label: d.toLocaleDateString('th-TH', { month: 'short' }), income, expense });
+    }
+    const max = Math.max(1, ...months.flatMap(m => [m.income, m.expense]));
+    return { months, max };
+  }, [transactions, visibleWallets]);
+
+  const spendingDonut = useMemo(() => {
+    const total = reportStats.expense || 0;
+    const palette = ['#0d9488', '#0ea5e9', '#f59e0b', '#10b981', '#64748b'];
+    const top = reportStats.sortedCats.slice(0, 4);
+    const othersAmt = reportStats.sortedCats.slice(4).reduce((s, [, a]) => s + a, 0);
+    const segs = top.map(([name, amt], i) => ({ name, amt, color: palette[i] }));
+    if (othersAmt > 0) segs.push({ name: 'อื่น ๆ', amt: othersAmt, color: palette[4] });
+    let acc = 0;
+    const stops = segs.map(s => {
+      const from = total ? (acc / total) * 100 : 0;
+      acc += s.amt;
+      const to = total ? (acc / total) * 100 : 0;
+      return `${s.color} ${from}% ${to}%`;
+    });
+    return { segs, total, gradient: stops.length ? `conic-gradient(${stops.join(',')})` : 'conic-gradient(#e2e8f0 0 100%)' };
+  }, [reportStats]);
+
+  const myDebts = debts.filter(d => d.owner === currentProfile);
+  const debtLent = myDebts.filter(d => d.type === 'lent').reduce((s, d) => s + d.amount, 0);
+  const debtBorrowed = myDebts.filter(d => d.type === 'borrowed').reduce((s, d) => s + d.amount, 0);
+  const debtNet = debtLent - debtBorrowed;
+
   const getCategorySpent = (catName) => transactions.filter(t => {
         const txDate = new Date(t.timestamp);
         return t.category === catName && t.type === 'expense' && !t.isTransfer && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear && visibleWallets.some(w => w.id === t.walletId);
@@ -1015,9 +1057,9 @@ export default function App() {
              </div>
         </div>
 
-        {/* === DASHBOARD VIEW === */}
+        {/* === DASHBOARD VIEW (MOBILE) === */}
         {viewMode === 'dashboard' && (
-          <div className="flex-1 flex flex-col transition-all duration-300 pb-32 md:pb-0 opacity-100 overflow-y-auto md:overflow-hidden">
+          <div className="flex-1 flex flex-col transition-all duration-300 pb-32 md:pb-0 opacity-100 overflow-y-auto md:hidden">
             
             {/* Desktop: Title Area */}
             <div className="hidden md:block pt-8 px-8 pb-4">
@@ -1232,6 +1274,273 @@ export default function App() {
                         </div>
                     </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* === DASHBOARD VIEW (DESKTOP — single-page overview) === */}
+        {viewMode === 'dashboard' && (
+          <div className="hidden md:flex flex-col flex-1 overflow-hidden bg-[#f4f9f8] font-['IBM_Plex_Sans_Thai']">
+            {/* Title */}
+            <div className="pt-7 px-8 pb-3 shrink-0">
+              <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2"><LayoutGrid className="text-teal-500" size={22}/> ภาพรวมกระเป๋าเงิน</h2>
+              <p className="text-xs text-slate-400 mt-1">ยินดีต้อนรับกลับ, {profileData.name}! · {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-5">
+
+              {/* Pending Bills Alert */}
+              {myPendingBills.length > 0 && (
+                <div className="bg-cyan-50 border border-cyan-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-cyan-800 font-bold text-xs uppercase tracking-wider shrink-0">
+                    <Bell size={15} className="animate-bounce"/> บิลรอจ่าย ({myPendingBills.length})
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                    {myPendingBills.map(bill => (
+                      <div key={bill.id} className="flex-shrink-0 flex items-center gap-3 bg-white p-2 px-3 rounded-xl border border-cyan-100 shadow-sm">
+                        <div><p className="font-bold text-slate-800 text-xs">{bill.title}</p><p className="text-cyan-700 font-bold text-sm">฿{bill.amount.toLocaleString()}</p></div>
+                        <button onClick={() => handlePayBillClick(bill)} className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:opacity-90 whitespace-nowrap">จ่ายเลย</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* KPI ROW */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="rounded-2xl p-4 text-white shadow-lg bg-gradient-to-br from-teal-600 to-cyan-600 relative overflow-hidden">
+                  <Wallet className="absolute -right-3 -top-3 opacity-20" size={70}/>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider opacity-80">สินทรัพย์รวม</p>
+                  <h3 className="text-2xl font-bold mt-2 tracking-tight">{privacyMode ? '••••••' : `฿${totalWealth.toLocaleString()}`}</h3>
+                </div>
+                <div className="rounded-2xl p-4 bg-white border border-slate-200/70 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-center"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">รายรับ</span><span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><TrendingUp size={16}/></span></div>
+                  <h3 className="text-xl font-bold mt-2 text-emerald-600">{privacyMode ? '•••' : `฿${reportStats.income.toLocaleString()}`}</h3>
+                  <p className="text-[10px] text-slate-400 mt-1">เดือนนี้</p>
+                </div>
+                <div className="rounded-2xl p-4 bg-white border border-slate-200/70 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-center"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">รายจ่าย</span><span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center"><TrendingDown size={16}/></span></div>
+                  <h3 className="text-xl font-bold mt-2 text-slate-800">{privacyMode ? '•••' : `฿${reportStats.expense.toLocaleString()}`}</h3>
+                  <p className="text-[10px] text-slate-400 mt-1">เดือนนี้</p>
+                </div>
+                <div className="rounded-2xl p-4 bg-white border border-slate-200/70 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-center"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">คงเหลือสุทธิ</span><span className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><Activity size={16}/></span></div>
+                  <h3 className={`text-xl font-bold mt-2 ${netSavings >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{privacyMode ? '•••' : `${netSavings >= 0 ? '+' : '-'}฿${Math.abs(netSavings).toLocaleString()}`}</h3>
+                  <p className="text-[10px] text-slate-400 mt-1">{savingsRate >= 0 ? `ออมได้ ${savingsRate}% ของรายรับ` : 'ใช้เกินรายรับ'}</p>
+                </div>
+                <div className="rounded-2xl p-4 bg-white border border-slate-200/70 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-center"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">ใช้ได้วันละ</span><span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center"><Target size={16}/></span></div>
+                  {totalMonthlyBudget === 0 ? (
+                    <h3 className="text-sm font-bold mt-2 text-slate-300 cursor-pointer hover:text-slate-400" onClick={() => showToast('ไปตั้งงบประมาณก่อนครับ')}>+ ตั้งงบก่อน</h3>
+                  ) : (
+                    <h3 className="text-xl font-bold mt-2 text-slate-800">{privacyMode ? '•••' : `฿${Math.floor(dailyBudget).toLocaleString()}`}</h3>
+                  )}
+                  <p className="text-[10px] text-slate-400 mt-1">{totalMonthlyBudget === 0 ? 'ยังไม่ได้ตั้งงบ' : `เหลืออีก ${daysRemaining} วัน`}</p>
+                </div>
+              </div>
+
+              {/* BENTO GRID */}
+              <div className="grid grid-cols-12 gap-5">
+
+                {/* Wallets */}
+                <div className="col-span-8 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><Wallet size={15} className="text-teal-600"/> กระเป๋าเงิน</h3>
+                    {currentProfile !== 'family' && <button onClick={openCreateWallet} className="text-[10px] bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 py-1.5 rounded-full flex items-center gap-1 font-bold hover:opacity-90 transition-opacity"><Plus size={13}/> สร้างใหม่</button>}
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                    {visibleWallets.length === 0 ? (
+                      <div className="w-full h-24 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-xs">ไม่พบกระเป๋าเงิน</div>
+                    ) : visibleWallets.map(wallet => {
+                      const balance = calculateBalance(wallet);
+                      const dailyChange = calculateDailyChange(wallet.id);
+                      const isActive = wallet.id === activeWalletId;
+                      return (
+                        <button key={wallet.id} onClick={() => setActiveWalletId(wallet.id)} style={{ backgroundColor: wallet.color }} className={`flex-shrink-0 w-44 rounded-2xl p-4 text-white text-left relative overflow-hidden flex flex-col justify-between min-h-[112px] transition-all ${isActive ? 'ring-2 ring-offset-2 ring-teal-400 scale-[1.02]' : 'opacity-90 hover:opacity-100 hover:scale-[1.01]'}`}>
+                          <div className="absolute -right-5 -bottom-6 w-20 h-20 rounded-full bg-white/10"></div>
+                          <div className="flex items-center gap-2 z-10"><span className="text-2xl drop-shadow">{wallet.icon}</span><span className="text-[11px] font-semibold opacity-95 leading-tight">{wallet.name}</span></div>
+                          <div className="z-10">
+                            <p className={`text-xl font-bold tracking-tight ${balance < 0 ? 'text-rose-100' : 'text-white'}`}>{privacyMode ? '••••' : `฿${balance.toLocaleString()}`}</p>
+                            {!privacyMode && dailyChange !== 0 && <p className={`text-[10px] font-semibold ${dailyChange > 0 ? 'text-green-100' : 'text-rose-100'}`}>{dailyChange > 0 ? '▲ +' : '▼ '}{Math.abs(dailyChange).toLocaleString()} วันนี้</p>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Quick Menu */}
+                <div className="col-span-4 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><Zap size={15} className="text-amber-500"/> เมนูลัด</h3>
+                    <button onClick={openManageQuickMenu} className="text-slate-400 hover:text-slate-600"><Edit3 size={14}/></button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {quickMenus.slice(0, 7).map((menu, idx) => (
+                      <button key={idx} onClick={() => handleQuickAdd(menu)} disabled={loading} className="border border-slate-200 rounded-xl p-2 flex flex-col items-center hover:border-teal-400 hover:bg-teal-50/50 transition-all active:scale-95">
+                        <span className="text-lg">{menu.icon}</span>
+                        <span className="text-[9px] font-bold text-slate-600 truncate w-full text-center">{menu.name}</span>
+                        <span className="text-[9px] text-slate-400">฿{menu.amount}</span>
+                      </button>
+                    ))}
+                    <button onClick={openManageQuickMenu} className="border border-dashed border-slate-300 rounded-xl p-2 flex items-center justify-center text-slate-400 hover:bg-slate-50 min-h-[52px]"><Plus size={18}/></button>
+                  </div>
+                </div>
+
+                {/* Cashflow */}
+                <div className="col-span-7 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><BarChart3 size={15} className="text-cyan-600"/> กระแสเงินสด · 6 เดือนล่าสุด</h3>
+                    <button onClick={() => setViewMode('report')} className="text-[11px] text-cyan-600 font-bold hover:underline">ดูรายงาน →</button>
+                  </div>
+                  <div className="flex items-end gap-3 h-36">
+                    {monthlyFlow.months.map((m, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1.5 h-full">
+                        <div className="flex gap-1.5 items-end w-full justify-center h-full">
+                          <div className="w-2.5 rounded-t bg-gradient-to-t from-teal-300 to-teal-600" style={{ height: `${(m.income / monthlyFlow.max) * 100}%` }} title={`รายรับ ฿${m.income.toLocaleString()}`}></div>
+                          <div className="w-2.5 rounded-t bg-gradient-to-t from-sky-300 to-sky-500" style={{ height: `${(m.expense / monthlyFlow.max) * 100}%` }} title={`รายจ่าย ฿${m.expense.toLocaleString()}`}></div>
+                        </div>
+                        <span className="text-[10px] text-slate-400">{m.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-4 mt-3 text-[11px] text-slate-500">
+                    <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-teal-600 inline-block"></i>รายรับ</span>
+                    <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-sky-500 inline-block"></i>รายจ่าย</span>
+                  </div>
+                </div>
+
+                {/* Category Donut */}
+                <div className="col-span-5 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><PieChart size={15} className="text-teal-600"/> รายจ่ายตามหมวด</h3>
+                    <span className="text-[11px] text-slate-400">{selectedMonth.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' })}</span>
+                  </div>
+                  {spendingDonut.segs.length === 0 ? (
+                    <div className="py-10 text-center text-slate-300 text-xs">ยังไม่มีรายจ่ายเดือนนี้ 🎉</div>
+                  ) : (
+                    <div className="flex items-center gap-5">
+                      <div className="relative w-28 h-28 shrink-0 rounded-full" style={{ background: spendingDonut.gradient }}>
+                        <div className="absolute inset-[18px] rounded-full bg-white flex flex-col items-center justify-center text-center">
+                          <span className="text-sm font-bold text-slate-800">{privacyMode ? '•••' : `฿${spendingDonut.total.toLocaleString()}`}</span>
+                          <span className="text-[9px] text-slate-400">รวมทั้งเดือน</span>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-2">
+                        {spendingDonut.segs.map((s, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs">
+                            <i className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }}></i>
+                            <span className="flex-1 text-slate-500 truncate">{expenseCategories.find(c => c.name === s.name)?.icon || '✨'} {s.name}</span>
+                            <span className="font-semibold text-slate-700">{privacyMode ? '•••' : `฿${s.amt.toLocaleString()}`}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recent Transactions */}
+                <div className="col-span-4 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><Activity size={15} className="text-teal-600"/> รายการล่าสุด</h3>
+                  </div>
+                  {allWalletsTransactions.length === 0 ? (
+                    <div className="py-8 text-center text-slate-300 text-xs">ยังไม่มีรายการในเดือนนี้</div>
+                  ) : allWalletsTransactions.slice(0, 6).map(t => (
+                    <div key={t.id} onClick={() => handleOpenTransaction(t.type, t)} className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50 -mx-2 px-2 rounded-lg transition-colors">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 ${t.type === 'income' ? 'bg-emerald-50' : t.type === 'transfer' ? 'bg-cyan-50' : 'bg-slate-100'}`}>{t.type === 'transfer' ? <ArrowRightLeft size={15} className="text-cyan-600"/> : (t.type === 'income' ? (incomeCategories.find(c => c.name === t.category)?.icon || '💰') : (expenseCategories.find(c => c.name === t.category)?.icon || '💸'))}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 truncate">{t.category}{t.note && <span className="text-slate-400 font-normal ml-1">{t.note}</span>}</p>
+                        <p className="text-[10px] text-slate-400">{t.dateDisplay} · {t.walletName}</p>
+                      </div>
+                      <span className={`text-xs font-bold ${t.type === 'income' ? 'text-emerald-600' : t.type === 'transfer' ? 'text-cyan-600' : 'text-slate-800'}`}>{t.type === 'income' ? '+' : '-'}{privacyMode ? '•••' : t.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Budgets */}
+                <div className="col-span-4 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><Target size={15} className="text-amber-500"/> งบประมาณเดือนนี้</h3>
+                    {currentProfile !== 'family' && <button onClick={openCreateBudget} className="text-[10px] text-teal-600 font-bold hover:underline">+ ตั้งเป้า</button>}
+                  </div>
+                  {profileBudgets.length === 0 ? (
+                    <button onClick={openCreateBudget} className="w-full py-8 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center gap-1 text-slate-400 hover:bg-slate-50 text-xs"><Plus size={16}/> เริ่มตั้งงบประมาณ</button>
+                  ) : profileBudgets.slice(0, 5).map(b => {
+                    const spent = getCategorySpent(b.category);
+                    const percent = Math.min((spent / b.limit) * 100, 100);
+                    const isOver = spent > b.limit;
+                    return (
+                      <div key={b.id} onClick={() => openEditBudget(b)} className="mb-3 last:mb-0 cursor-pointer">
+                        <div className="flex justify-between items-center mb-1.5 text-xs">
+                          <span className="font-semibold text-slate-700 flex items-center gap-1.5"><span>{expenseCategories.find(c => c.name === b.category)?.icon || '💸'}</span>{b.category}</span>
+                          <span className="text-[11px] text-slate-400">{privacyMode ? '•••' : spent.toLocaleString()} / {b.limit.toLocaleString()}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div style={{ width: `${percent}%` }} className={`h-full rounded-full ${isOver ? 'bg-rose-500' : percent > 80 ? 'bg-amber-500' : 'bg-teal-500'}`}></div></div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Pending Bills */}
+                <div className="col-span-4 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xs font-bold text-cyan-700 uppercase tracking-wider flex items-center gap-2"><Bell size={15}/> บิลรอจ่าย ({myPendingBills.length})</h3>
+                    {currentProfile === 'family' && <button onClick={() => setViewMode('bills')} className="text-[11px] text-cyan-600 font-bold hover:underline">ทั้งหมด →</button>}
+                  </div>
+                  {myPendingBills.length === 0 ? (
+                    <div className="py-8 text-center text-slate-300 text-xs">ไม่มีบิลค้างจ่าย 👍</div>
+                  ) : myPendingBills.slice(0, 4).map(bill => (
+                    <div key={bill.id} className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0">
+                      <div className="w-9 h-9 rounded-xl bg-cyan-50 flex items-center justify-center text-base shrink-0">🧾</div>
+                      <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-slate-800 truncate">{bill.title}</p>{bill.recurringDay && <p className="text-[10px] text-slate-400">ทุกวันที่ {bill.recurringDay}</p>}</div>
+                      <button onClick={() => handlePayBillClick(bill)} className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:opacity-90 whitespace-nowrap">฿{bill.amount.toLocaleString()} จ่าย</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Debts */}
+                <div className="col-span-6 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><BookOpen size={15} className="text-teal-600"/> หนี้ & ลูกหนี้</h3>
+                    <button onClick={() => setViewMode('debts')} className="text-[11px] text-teal-600 font-bold hover:underline">จัดการ →</button>
+                  </div>
+                  {myDebts.length === 0 ? (
+                    <div className="py-8 text-center text-slate-300 text-xs">ยังไม่มีรายการหนี้สิน</div>
+                  ) : (
+                    <>
+                      {myDebts.slice(0, 3).map(d => (
+                        <div key={d.id} className="flex items-center gap-3 py-2 border-b border-slate-100">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${d.type === 'lent' ? 'bg-emerald-50' : 'bg-rose-50'}`}>{d.type === 'lent' ? '🙋' : '💳'}</div>
+                          <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-slate-800 truncate">{d.person}</p><p className="text-[10px] text-slate-400 truncate">{d.type === 'lent' ? 'ยืมเราไป' : 'เรายืมเขา'}{d.note ? ` · ${d.note}` : ''}</p></div>
+                          <span className={`text-xs font-bold ${d.type === 'lent' ? 'text-emerald-600' : 'text-rose-500'}`}>{d.type === 'lent' ? '+' : '-'}฿{d.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-100 text-xs"><span className="text-slate-500">สุทธิ</span><b className={debtNet >= 0 ? 'text-emerald-600' : 'text-rose-500'}>{debtNet >= 0 ? '+' : '-'}฿{Math.abs(debtNet).toLocaleString()}</b></div>
+                    </>
+                  )}
+                </div>
+
+                {/* Wishlist */}
+                <div className="col-span-6 rounded-2xl bg-white border border-slate-200/70 shadow-sm p-5">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><Gift size={15} className="text-teal-600"/> ของอยากได้</h3>
+                    <button onClick={() => setViewMode('planning')} className="text-[11px] text-teal-600 font-bold hover:underline">ทั้งหมด →</button>
+                  </div>
+                  {wishlist.length === 0 ? (
+                    <div className="py-8 text-center text-slate-300 text-xs">ยังไม่มีของในลิสต์</div>
+                  ) : wishlist.slice(0, 4).map(item => (
+                    <div key={item.id} className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
+                      <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center text-sm shrink-0">🎁</div>
+                      <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-slate-800 truncate">{item.title}</p><p className="text-[10px] text-slate-400">ขอโดย: {appProfiles[item.requester]?.name || '-'}</p></div>
+                      {item.status && item.status !== 'pending'
+                        ? <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>{item.status === 'approved' ? 'อนุมัติ' : 'ไม่อนุมัติ'}</span>
+                        : <span className="text-xs font-bold text-slate-700">฿{item.price.toLocaleString()}</span>}
+                    </div>
+                  ))}
+                </div>
+
               </div>
             </div>
           </div>
