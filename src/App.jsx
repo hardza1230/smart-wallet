@@ -968,8 +968,8 @@ export default function App() {
   };
   
   return (
-    <div className="flex justify-center items-center min-h-screen p-4 font-['IBM_Plex_Sans_Thai'] text-gray-900 bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="w-full h-[85vh] max-w-6xl bg-white flex flex-row relative shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] border border-gray-200 rounded-[2.5rem] overflow-hidden">
+    <div className="flex justify-center items-stretch md:items-center min-h-screen p-0 md:p-4 font-['IBM_Plex_Sans_Thai'] text-gray-900 bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="w-full h-screen md:h-[85vh] max-w-6xl bg-white flex flex-row relative shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] border-0 md:border border-gray-200 rounded-none md:rounded-[2.5rem] overflow-hidden">
         
         <Particles key={animState.key} active={animState.active} type={animState.type} />
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
