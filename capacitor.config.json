@@ -1,0 +1,8 @@
+{
+  "appId": "com.hartjah.wallet",
+  "appName": "OurWallet",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  }
+}
